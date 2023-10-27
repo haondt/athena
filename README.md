@@ -1,5 +1,14 @@
 # athena
 
+athena is a file-based api test framework.
+
+# Purpose
+
+I can store my athena workspaces inside the repo of the project they test. Something I was originally doing with ThunderClient before they changed their payment
+model, but even better since I can leverage some python scripting and automation inside my test cases. 
+It's also much more lightweight than something like Postman. Since the workbook is just a collection of plaintext files, you can navigate an athena directory with
+any text editor.
+
 # Usage
 
 ## Setup
