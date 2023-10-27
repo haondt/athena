@@ -24,7 +24,8 @@ This will create an `athena` directory.
 ```sh
 .
 └── athena
-    └── .athena
+    ├── .athena
+    └── .gitignore
 ```
 
 Enter this directory, and create a workspace

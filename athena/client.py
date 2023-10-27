@@ -41,7 +41,7 @@ class Athena:
         if success:
             return value
 
-        workspace_secrets = self.__resource_loader.try_load_workspace_secrets(root, workspace)
+        workspace_secrets = self.__resource_loader.load_workspace_secrets(root, workspace)
         success, value = _try_extract_value_from_resource(workspace_secrets, name, self.__environment)
         if success:
             return value
