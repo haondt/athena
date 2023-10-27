@@ -5,7 +5,6 @@ from .exceptions import AthenaException
 from .resource import ResourceLoader, DEFAULT_ENVIRONMENT_KEY
 import importlib, inspect
 
-
 def run_modules(modules, environment=None):
     root = file.find_root(os.getcwd())
     for k in modules:
@@ -13,7 +12,10 @@ def run_modules(modules, environment=None):
         success, result, err = _run_module(root, k, path, environment)
         if not success:
             if err is not None:
-                print(f"failed with exception {err.__name__} {str(err)}")
+                error_name = ">"
+                if hasattr(err, "__name__"):
+                    error_name = err.__name__
+                print(f"failed with exception {error_name} {str(err)}")
 
 def _run_module(module_root, module_key, module_path, environment=None):
     if environment is None:

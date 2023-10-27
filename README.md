@@ -1,6 +1,6 @@
 # athena
 
-athena is a file-based api test framework.
+athena is a file-based rest api client.
 
 # Purpose
 
@@ -88,7 +88,59 @@ athena will call this function, with an `Athena` instance as the argument.
 from athena.client import Athena
 
 def run(athena: Athena):
-    # your code here...
+    ...
+```
+
+## Sending requests
+
+The injected `Athena` instance provides methods to create and send requests. Start by creating a new `Client`.
+
+```python
+def run(athena: Athena):
+    client = athena.client()
+```
+
+The client can be configured by providing a builder function. The builder will be applied to each request sent by the client.
+
+```python
+def run(athena: Athena):
+    client = athena.client(lambda builder: builder # see `AuthBuilder`
+        .base_url("http://haondt.com/api/")
+        .header("origin", "athena")
+        # the authentication can also be configured with an AuthBuilder
+        .auth(lambda auth_builder: auth_builder.bearer("some_secret_key")))
+
+```
+
+The client can be used to send api requests, and can also be configured with a builder.
+
+```python
+def run(athena: Athena):
+    ...
+    response = client.put("planets/saturn", lambda builder: builder
+        .json({
+            "diameter": "120 thousand km",
+            "density": "687 kg/m^3",
+            "distance_from_sun": "1.35 billion km"
+        }))
+```
+
+The response is a `ResponseTrace`, which contains info about the response
+
+```python
+def run(athena: Athena):
+    ...
+    print(f"status: {response.status_code} {response.reason}")
+```
+
+athena can provide more information about the rest of the request with the `trace` method, which will return the `AthenaTrace` for the whole request/response saga.
+
+```python
+def run(athena: Athena):
+    ...
+    trace = athena.trace(response)
+    print(f"request payload: {trace.request.raw}")
+    print(f"request time: {trace.elapsed}")
 ```
 
 ## Running tests
@@ -111,7 +163,6 @@ from athena.client import Athena
 
 def run(athena: Athena):
     password = athena.get_secret("password")
-    # your code here...
 ```
 
 This will reference the `variables.yml` and `secrets.yml` environment files. For a given module,
