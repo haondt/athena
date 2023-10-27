@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "athena"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "typer",
+    "pyyaml",
+    "requests"
+]
+dynamic = ["version"]
+
