@@ -1,7 +1,7 @@
 from athena.client import Athena
 from athena.trace import serialize_trace
 
-def run(athena: Athena):
+def example(athena: Athena):
     # form example
     client = athena.client(lambda r: r
         .base_url("http://helios.gabbro/"))
@@ -13,7 +13,7 @@ def run(athena: Athena):
     trace = athena.trace(response)
     print(serialize_trace(trace, indent=True))
 
-def example(athena: Athena):
+def example2(athena: Athena):
     secret = athena.get_secret("some_secret_key")
     base_url = athena.get_variable("base_url")
 

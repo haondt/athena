@@ -46,6 +46,7 @@ This will create a directory for the workspace and set up some environment files
         ├── secrets.yml
         ├── variables.yml
         ├── readme.md
+        ├── fixture.py
         └── run
 ```
 
@@ -66,6 +67,7 @@ This will add a new collection to the collections directory.
         │   └── my-collection
         │       ├── secrets.yml
         │       ├── variables.yml
+        │       ├── fixture.py
         │       ├── readme.md
         │       └── run
         ├── secrets.yml
@@ -148,12 +150,59 @@ def run(athena: Athena):
 
 athena can search the directory for modules to execute. Use `athena run` to start.
 This command will take an argument in the form of `workspace:collection:module`, and run all the modules that match.
-You can substitute values with `.` for the current directory, or `*` for any directory.
+
 
 ```sh
 # run all modules in "my-workspace" named "hello.py"
 python3 -m athena run "my-workspace:*:hello.py"
 ```
+
+For any module in a collection `run` folder, the directory path relative to the `run` folder will make up the module name. 
+For example, given the following files:
+
+```
+athena/my-workspace/collections/my-collection/run/red.py
+athena/my-workspace/collections/my-collection/run/green.py
+athena/my-workspace/collections/my-collection/run/toast/blue.py
+athena/my-workspace/collections/my-second-collection/run/red.py
+```
+
+You would have the following module keys:
+
+```
+my-workspace:my-collection:red
+my-workspace:my-collection:green
+my-workspace:my-collection:toast.blue
+my-workspace:my-second-collection:red
+```
+
+The module key parameter can contain wild cards. A single period (`.`) in any field will use the current directory.
+A single asterisk (`*`) will use all directories.
+
+```sh
+# run all modules in "my-workspace" named "hello.py"
+python3 -m athena run "my-workspace:*:hello.py"
+
+# run all modules in the collection of the current directory
+python3 -m athena run ".:.:*"
+```
+
+For the module name, asterisks can be used to denote "any module/directory", and double asterisks (`**`) can be used to denote any subdirectory.
+
+```sh
+# runs all files
+python3 -m athena run "*:*:**"
+
+# runs red.py and green.py
+python3 -m athena run "*:*:*"
+
+# runs only blue.py
+python3 -m athena run "*:*:*.*"
+python3 -m athena run "*:*:toast.*"
+python3 -m athena run "*:*:**.blue.py"
+```
+
+Internally, asterisks are compiled into the regular expression `[^.]+` and double asterisks are compiled into `.+`.
 
 ## Environments, Variables and Secrets
 
@@ -205,6 +254,46 @@ which takes a module mask argument as well.
 ```sh
 python3 -m athena status environments "my-workspace:*:hello.py"
 ```
+
+## Fixtures
+
+athena supports adding fixtures at the workspace and collection level. In both of these directories is a file called `fixture.py` with the following (default) contents:
+
+```python
+from athena.client import Fixture
+
+def fixture(fixture: Fixture):
+    pass
+```
+
+athena will call the fixture method on `Athena.fixture` before running any modules. With this you can do configuration at the collection / workspace level before running a module.
+
+`fixture.py`
+
+```python
+from athena.client import Fixture
+
+def fixture(fixture: Fixture):
+    base_url = athena.get_variable("base_url")
+    api_key = athena.get_secret("api_key")
+
+    client = athena.client(lambda b: b
+        .base_url(base_url)
+        .auth(lambda a: a.bearer(api_key)))
+
+    fixture.client = client
+```
+
+`my-module.py`
+
+```python
+from athena.client import Athena
+
+def run(athena: Athena):
+    client = athena.fixture.client
+    client.post("resources/24")
+```
+
 
 # Development
 

@@ -3,10 +3,18 @@ from .resource import ResourceLoader, _try_extract_value_from_resource
 from .exceptions import AthenaException
 import os, sys
 import requests
-from typing import Callable
+from typing import Callable, List
 from .trace import AthenaTrace, ResponseTrace, RequestTrace
 from .request import RequestBuilder, Client
 
+class Fixture:
+    _fixtures = {}
+    def __getattr__(self, name):
+        if name in self._fixtures:
+            return self._fixtures.get(name)
+        raise KeyError(f"no such fixture registered: {name}")
+    def __setattr__(self, name, value):
+        self._fixtures[name] = value
 
 class Athena:
     def __init__(self, context, environment, resource_loader: ResourceLoader):
@@ -14,6 +22,7 @@ class Athena:
         self.__resource_loader = resource_loader
         self.__environment = environment
         self.__history = []
+        self.fixture = Fixture()
 
     def _get_context(self):
         return self.__context
@@ -54,7 +63,15 @@ class Athena:
     def client(self, base_build_request: Callable[[RequestBuilder], RequestBuilder]=None, name=None):
         return Client(base_build_request, name, self.__client_hook)
 
-    def trace(self, subject) -> AthenaTrace:
+    def traces(self) -> List[AthenaTrace]:
+        return self.__history
+
+    def trace(self, subject=None) -> AthenaTrace:
+        if subject is None:
+            if len(self.__history) == 0:
+                raise AthenaException(f"no traces in history")
+            subject = self.__history[-1]
+
         is_trace = isinstance(subject, AthenaTrace)
         is_request_trace = isinstance(subject, RequestTrace)
         is_response_trace = isinstance(subject, ResponseTrace)

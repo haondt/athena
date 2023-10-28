@@ -1,4 +1,4 @@
-import os, yaml
+import os, yaml, re
 from .exceptions import AthenaException
 
 def init(base_dir: str):
@@ -48,9 +48,9 @@ def create_workspace(current_dir: str, name: str):
     secrets_path = os.path.join(path, "secrets.yml")
     with open(secrets_path, "w") as f:
         f.write("secrets:\n")
-
-    run_dir = os.path.join(path, "run")
-    os.mkdir(run_dir)
+    fixture_path = os.path.join(path, "fixture.py")
+    with open(fixture_path, "w") as f:
+        f.write("from athena.client import Fixture\n\ndef fixture(fixture: Fixture):\n    pass\n")
 
     collections_dir = os.path.join(path, "collections")
     os.mkdir(collections_dir)
@@ -97,6 +97,9 @@ def create_collection(current_dir: str, workspace: str, name: str):
     secrets_path = os.path.join(collection_path, "secrets.yml")
     with open(secrets_path, "w") as f:
         f.write("secrets:\n")
+    fixture_path = os.path.join(collection_path, "fixture.py")
+    with open(fixture_path, "w") as f:
+        f.write("from athena.client import Fixture\n\ndef fixture(fixture: Fixture):\n    pass\n")
 
     run_dir = os.path.join(collection_path, "run")
     os.mkdir(run_dir)
@@ -129,27 +132,47 @@ def list_modules(root: str):
                     if os.path.isdir(collection_path):
                         modules_path = os.path.join(collection_path, "run")
                         if os.path.isdir(modules_path):
-                            for module in os.listdir(modules_path):
-                                module_path = os.path.join(modules_path, module)
-                                if module.endswith(".py"):
-                                    module_key = f"{entry}:{collection}:{module}"
-                                    module_list[module_key] = module_path
+                            # --
+                            modules = __search_for_python_files(modules_path)
+                            for k in modules:
+                                module_key = f"{entry}:{collection}:{k}"
+                                module_list[module_key] = modules[k]
     return module_list
 
-def search_modules(root: str, workspace: str, collection: str, module: str):
-    modules_list = list_modules(root)
-    modules_search = {}
-    for k in modules_list:
-        ws, cl, md = k.split(":")
-        if workspace not in ["*", ws]:
-            continue
-        if collection not in ["*", cl]:
-            continue
-        if module not in ["*", md, md[:-3]]:
-            continue
-        modules_search[k] = modules_list[k]
-    return modules_search
+def __search_for_python_files(root: str, current_name=""):
+    contents = {}
+    for item in os.listdir(root):
+        full_path = os.path.join(root, item)
+        full_name = f"{current_name}.{item}"
+        if current_name == "":
+            full_name = f"{item}"
+        if os.path.isfile(full_path) and item.endswith(".py"):
+            contents[full_name[:-3]] = full_path
+        elif os.path.isdir(full_path) and not (
+            item.startswith(".")
+            or item.startswith("__")):
+            sub_contents = __search_for_python_files(full_path, full_name)
+            contents |= sub_contents
+    return contents
 
+
+def search_modules(root: str, workspace: str, collection: str, module: str):
+    module_re = f"^{re.escape(workspace)}:{re.escape(collection)}:"
+    module_name_parts = module.split(".")
+    module_name_re = ""
+    for part in module_name_parts:
+        if module_name_re != "":
+            module_name_re += r"\."
+        if part == "*":
+            module_name_re += "[^.]+"
+        elif part == "**":
+            module_name_re += ".+"
+        else:
+            module_name_re += re.escape(part)
+    module_re += f"{module_name_re}$"
+    module_re = re.compile(module_re)
+
+    return {k:v for k, v in list_modules(root).items() if module_re.match(k)}
 
 def _import_yaml(file):
     return yaml.load(file, Loader=yaml.FullLoader)

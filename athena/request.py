@@ -40,6 +40,12 @@ class AuthBuilder:
             return rq
         self.add_auth = set_bearer
         return self
+    def basic(self, username, password) -> AuthBuilder:
+        def set_auth(rq: AthenaRequest):
+            rq.auth = (username, password)
+            return rq
+        self.add_auth = set_auth
+        return self
     def compile(self) -> Callable[[AthenaRequest], AthenaRequest]:
         return self.add_auth
 
