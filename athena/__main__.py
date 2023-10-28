@@ -6,6 +6,7 @@ from . import run as athena_run
 from . import status as athena_status
 from .exceptions import AthenaException
 from enum import Enum
+from .format import colors, color
 
 app = typer.Typer()
 
@@ -111,6 +112,5 @@ if __name__ == "__main__":
     try:
         app()
     except AthenaException as e:
-        error_text = "\033[1;31merror:\033[0m"
-        sys.stderr.write(f"{error_text} {type(e).__name__}: {str(e)}\n")
+        sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
         sys.exit(1)
