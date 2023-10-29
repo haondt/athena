@@ -1,32 +1,55 @@
 import os, sys
+from typing import Any, Dict, List
+
+from athena.format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
+from athena.trace import AthenaTrace
 from . import file
 from .client import Athena
 from .exceptions import AthenaException
 from .resource import ResourceLoader, DEFAULT_ENVIRONMENT_KEY
-from .format import color, colors, indent, long_format_error, pretty_format_error
 import importlib, inspect
 
-def run_modules(modules, environment=None):
-    sys.path[0] = ''
-    root = file.find_root(os.getcwd())
-    for k in modules:
-        path = modules[k]
-        success, result, err = _run_module(root, k, path, environment)
-        if not success:
-            if err is not None:
+class Result:
+    def __init__(self, success: bool, result: Any, traces: List[AthenaTrace], error: Exception | None):
+        self.success = success
+        self.traces = traces
+        self.error = error
+        self.result = result
+
+    def format_short(self) -> str:
+        if not self.success:
+            if self.error is not None:
+                message = short_format_error(self.error)
+                return f"{color('failed', colors.red)}\n{indent(message, 1, '    │ ', indent_empty_lines=True)}"
+            else:
+                return f"{color('skipped', colors.yellow)}"
+        else:
+            return f"{color('passed', colors.green)}"
+
+    def format_long(self) -> str:
+        if not self.success:
+            if self.error is not None:
                 message = ""
                 try:
-                    message = pretty_format_error(err, truncate_trace=True)
+                    message = pretty_format_error(self.error, truncate_trace=True)
                 except:
-                    message = long_format_error(err, truncate_trace=False)
-                print(f"{k}: {color('failed', colors.red)}\n{indent(message, 1, '    │ ', indent_empty_lines=True)}")
+                    message = long_format_error(self.error, truncate_trace=False)
+                return f"{color('failed', colors.red)}\n{indent(message, 1, '    │ ', indent_empty_lines=True)}"
             else:
-                print(f"{k}: {color('skipped', colors.yellow)}")
+                return f"{color('skipped', colors.yellow)}"
         else:
-            print(f"{k}: {color('passed', colors.green)}")
+            return f"{color('passed', colors.green)}"
 
+def run_modules(modules, environment: str | None=None) -> Dict[str, Result]:
+    sys.path[0] = ''
+    root = file.find_root(os.getcwd())
+    results = {}
+    for k in modules:
+        path = modules[k]
+        results[k] = _run_module(root, k, path, environment)
+    return results
 
-def _run_module(module_root, module_key, module_path, environment=None):
+def _run_module(module_root, module_key, module_path, environment=None) -> Result:
     if environment is None:
         environment = DEFAULT_ENVIRONMENT_KEY
     module_path = os.path.normpath(module_path)
@@ -53,18 +76,19 @@ def _run_module(module_root, module_key, module_path, environment=None):
 
     # load workspace fixture
     if os.path.isfile(os.path.join(workspace_fixture_dir, "fixture.py")):
-        success, result, error = __try_execute_module(workspace_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
+        success, _, error = __try_execute_module(workspace_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
         if not success and error is not None:
-            return success, None, error
+            return Result(success, None, athena_instance.traces(), error)
 
     # load collection fixture
     if os.path.isfile(os.path.join(collection_fixture_dir, "fixture.py")):
-        success, result, error = __try_execute_module(collection_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
+        success, _, error = __try_execute_module(collection_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
         if not success and error is not None:
-            return success, None, error
+            return Result(success, None, athena_instance.traces(), error)
 
     # execute module
-    return __try_execute_module(module_dir, module_name, "run", (athena_instance,))
+    success, result, error = __try_execute_module(module_dir, module_name, "run", (athena_instance,))
+    return Result(success, result, athena_instance.traces(), error)
 
 def __try_execute_module(module_dir, module_name, function_name, function_args):
     sys.path.insert(0, module_dir)
@@ -93,4 +117,4 @@ def __try_get_function(module, function_name, num_args):
             if len(arg_spec.args) != num_args:
                 continue
             return True, value
-    return False, None
+    return False, lambda: None

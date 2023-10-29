@@ -1,13 +1,9 @@
 import requests, json
 from .exceptions import AthenaException
-import collections
-from typing import Mapping
+from .json import mark_serializeable, jsonify
 
-def serialize_trace(trace, indent=False):
-    if indent:
-        return json.dumps(trace, default=lambda t: t.__dict__, indent=4)
-    return json.dumps(trace, default=lambda t: t.__dict__)
 
+@mark_serializeable
 class AthenaTrace:
     def __init__(self, response: requests.Response):
         self.response = ResponseTrace(response)
@@ -15,6 +11,10 @@ class AthenaTrace:
 
         self.elapsed = str(response.elapsed)
 
+    def __str__(self):
+        return jsonify(self)
+
+@mark_serializeable
 class ResponseTrace:
     def __init__(self, response: requests.Response):
         self.headers = { k:response.headers[k] for k in response.headers.keys() }
@@ -23,6 +23,10 @@ class ResponseTrace:
         self.status_code = response.status_code
         self.reason = response.reason
 
+    def __str__(self):
+        return jsonify(self)
+
+@mark_serializeable
 class RequestTrace:
     def __init__(self, request: requests.PreparedRequest):
         self.method = request.method
@@ -36,7 +40,7 @@ class RequestTrace:
         if self.content_type == "application/json":
             if isinstance(request.body, bytes):
                 self.raw = request.body.decode('utf-8')
-            elif isinstance(request.body, string):
+            elif isinstance(request.body, str):
                 self.raw = request.body
             else:
                 self.raw = str(request.body)
@@ -49,7 +53,12 @@ class RequestTrace:
         else:
             raise AthenaException(f"unable to handle request body of type {type(request.body)}")
 
+    def __str__(self):
+        return jsonify(self)
+
     def json(self):
-        if self.content_type == "application/json":
-            return json.loads(self.raw)
-        raise AthenaException(f"unable to load json, content type is {self.content_type}")
+        if self.content_type != "application/json":
+            raise AthenaException(f"unable to load json, content type is {self.content_type}")
+        if not isinstance(self.raw, str):
+            raise AthenaException(f"unable to load json, raw body type is {type(self.raw).__name__}")
+        return json.loads(self.raw)

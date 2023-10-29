@@ -1,12 +1,15 @@
 import typer
 import sys, os
 from typing_extensions import Annotated
+
+from athena.resource import DEFAULT_ENVIRONMENT_KEY
 from . import file
 from . import run as athena_run
 from . import status as athena_status
 from .exceptions import AthenaException
 from enum import Enum
 from .format import colors, color
+from .json import jsonify
 
 app = typer.Typer()
 
@@ -34,13 +37,13 @@ def create(
             )],
         workspace: Annotated[str, typer.Option(
             help="Workspace to create new collection inside of",
-            )] = None
+            )] = ""
     ):
     if item is Createables.workspace:
         workspace_path = file.create_workspace(os.getcwd(), name)
         print(f'Created workspace at `{workspace_path}')
     elif item is Createables.collection:
-        file.create_collection(os.getcwd(), workspace, name)
+        file.create_collection(os.getcwd(), workspace if workspace != "" else None, name)
 
 def resolve_module_path(path: str):
     current_dir = os.path.normpath(os.getcwd())
@@ -82,12 +85,15 @@ def run(
             )],
         environment: Annotated[str, typer.Option(
             help="environment to run tests against. environment must exist in all referenced workspaces",
-            )] = None
+            )] = DEFAULT_ENVIRONMENT_KEY
         ):
         
     root, workspace, collection, module = resolve_module_path(path)
     modules = file.search_modules(root, workspace, collection, module)
-    athena_run.run_modules(modules, environment)
+    results = athena_run.run_modules(modules, environment)
+    for key, result in results.items():
+        print(f"{key}: {result.format_long()}")
+
 
 @app.command()
 def status(
@@ -102,6 +108,21 @@ def status(
     environments = athena_status.search_environments(root, modules.keys())
     print("environments:")
     print("\n".join(["  " + i for i in environments]))
+
+@app.command()
+def inspect(
+        path: Annotated[str, typer.Argument(
+            help="Name of module, collection or workspace to run, in the format workspace:collection:path.to.module."
+            )],
+        environment: Annotated[str, typer.Option(
+            help="environment to run tests against. environment must exist in all referenced workspaces",
+            )] = DEFAULT_ENVIRONMENT_KEY
+        ):
+    root, workspace, collection, module = resolve_module_path(path)
+    modules = file.search_modules(root, workspace, collection, module)
+    results = athena_run.run_modules(modules, environment)
+    for key, result in results.items():
+        print(f"{key}: {jsonify(result.traces)}")
 
 if __name__ == "__main__":
     try:

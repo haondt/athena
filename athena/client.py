@@ -3,6 +3,8 @@ from .exceptions import AthenaException
 from typing import Any, Callable, List, Protocol
 from .trace import AthenaTrace, ResponseTrace, RequestTrace
 from .request import RequestBuilder, Client
+from .json import AthenaJSONEncoder
+from json import dumps as json_dumps
 
 class _Fixture:
     _fixtures = {}
@@ -21,7 +23,7 @@ class Athena:
         self.__context = context
         self.__resource_loader = resource_loader
         self.__environment = environment
-        self.__history = []
+        self.__history: List[AthenaTrace] = []
         self.__history_lookup_cache = {}
         self.fixture: Fixture = _Fixture()
 
@@ -65,7 +67,7 @@ class Athena:
         return Client(base_build_request, name, self.__client_hook)
 
     def traces(self) -> List[AthenaTrace]:
-        return self.__history
+        return self.__history.copy()
 
     def trace(self, subject: AthenaTrace | RequestTrace | ResponseTrace | None=None) -> AthenaTrace:
         if subject is None:
@@ -92,3 +94,6 @@ class Athena:
 
         self.__history_lookup_cache[subject] = trace
         return trace
+
+def jsonify(item: Any, *args, **kwargs):
+    return json_dumps(item, cls=AthenaJSONEncoder, *args, **kwargs)

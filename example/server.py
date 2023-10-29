@@ -25,7 +25,6 @@ def auth_required(func):
     @wraps(func)
     def decorated(*args, **kwargs):
         auth = request.authorization
-        print("ooooo")
         if not auth or not check_auth(auth.username, auth.password):
             return jsonify({"error": "Authentication failed"}), 401
         return func(*args, **kwargs)
@@ -39,6 +38,7 @@ def get_planets():
 
 # Endpoint with JSON response
 @app.route('/api/planets/<string:planet_name>', methods=['GET'])
+@auth_required
 def get_planet(planet_name):
     planet = next((p for p in solar_system_data["planets"] if p["name"] == planet_name), None)
     if planet:

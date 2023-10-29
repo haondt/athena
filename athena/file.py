@@ -29,8 +29,6 @@ def find_root(current_dir: str):
         current_dir = os.path.dirname(current_dir)
         current_depth += 1
 
-    return current_dir
-
 def create_workspace(current_dir: str, name: str):
     base_dir = find_root(current_dir)
     path = os.path.join(base_dir, name)
@@ -57,7 +55,7 @@ def create_workspace(current_dir: str, name: str):
 
     return path
 
-def create_collection(current_dir: str, workspace: str, name: str):
+def create_collection(current_dir: str, workspace: str | None, name: str):
     root = find_root(current_dir)
     workspace_path = None
     if workspace is not None:

@@ -1,5 +1,4 @@
-from athena.client import Athena
-from athena.trace import serialize_trace
+from athena.client import Athena, jsonify
 
 def example(athena: Athena):
     # form example
@@ -11,13 +10,13 @@ def example(athena: Athena):
             "id": "423d60b8-ecfb-4490-9503-f3334241d581"
         }))
     trace = athena.trace(response)
-    print(serialize_trace(trace, indent=True))
+    print(jsonify(trace))
 
 def example2(athena: Athena):
     secret = athena.get_secret("some_secret_key")
     base_url = athena.get_variable("base_url")
 
-    client2 = athena.client(lambda r: r
+    client = athena.client(lambda r: r
         .base_url(base_url)
         .auth(lambda a: a.bearer(secret)))
 

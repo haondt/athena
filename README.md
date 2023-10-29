@@ -310,6 +310,8 @@ def run(athena: Athena):
 
 ## Utilities
 
+### Executable
+
 You can check the available modules and environments with the `status` command
 
 ```sh
@@ -318,6 +320,21 @@ python3 -m athena status
 
 # filter to current collection
 python3 -m athena status ".:.:**"
+```
+
+### Imported
+
+athena provides a `jsonify` tool to json-dump athena objects, like `AthenaTrace`.
+Apart from adding an encoder for athena objects, this method will pass-through arguments
+like `indent` to `json.dumps`.
+
+```python
+from athena.client improt Athena, jsonify
+
+def run(athena: Athena):
+    athena.client().get("http://haondt.com")
+    traces = athena.traces()
+    print(jsonify(traces, indent=4))
 ```
 
 # Development
