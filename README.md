@@ -274,14 +274,16 @@ athena will call the fixture method on `Athena.fixture` before running any modul
 from athena.client import Fixture
 
 def fixture(fixture: Fixture):
-    base_url = athena.get_variable("base_url")
-    api_key = athena.get_secret("api_key")
+    def build_client(athena: Athena):
+        base_url = athena.get_variable("base_url")
+        api_key = athena.get_secret("api_key")
 
-    client = athena.client(lambda b: b
-        .base_url(base_url)
-        .auth(lambda a: a.bearer(api_key)))
+        client = athena.client(lambda b: b
+            .base_url(base_url)
+            .auth(lambda a: a.bearer(api_key)))
+        return client
 
-    fixture.client = client
+    fixture.client = build_client
 ```
 
 `my-module.py`
@@ -290,7 +292,7 @@ def fixture(fixture: Fixture):
 from athena.client import Athena
 
 def run(athena: Athena):
-    client = athena.fixture.client
+    client = athena.fixture.client(athena)
     client.post("path/to/resource")
 ```
 
