@@ -107,15 +107,15 @@ The client can be configured by providing a builder function. The builder will b
 
 ```python
 def run(athena: Athena):
-    client = athena.client(lambda builder: builder # see `AuthBuilder`
+    client = athena.client(lambda builder: builder
         .base_url("http://haondt.com/api/")
         .header("origin", "athena")
-        # the authentication can also be configured with an AuthBuilder
+        # the authentication can also be configured with a builder
         .auth(lambda auth_builder: auth_builder.bearer("some_secret_key")))
 
 ```
 
-The client can be used to send api requests, and can also be configured with a builder.
+The client can be used to send api requests. The requets themselves can also be configured with a builder.
 
 ```python
 def run(athena: Athena):
@@ -128,7 +128,7 @@ def run(athena: Athena):
         }))
 ```
 
-The response is a `ResponseTrace`, which contains info about the response
+The response is a `ResponseTrace`, which contains information about the response
 
 ```python
 def run(athena: Athena):
@@ -291,7 +291,7 @@ from athena.client import Athena
 
 def run(athena: Athena):
     client = athena.fixture.client
-    client.post("resources/24")
+    client.post("path/to/resource")
 ```
 
 ## Hooks
