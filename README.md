@@ -271,7 +271,7 @@ athena will call the fixture method on `Athena.fixture` before running any modul
 `fixture.py`
 
 ```python
-from athena.client import Fixture
+from athena.client import Fixture, Athena
 
 def fixture(fixture: Fixture):
     def build_client(athena: Athena):
