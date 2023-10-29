@@ -154,7 +154,7 @@ This command will take an argument in the form of `workspace:collection:module`,
 
 ```sh
 # run all modules in "my-workspace" named "hello.py"
-python3 -m athena run "my-workspace:*:hello.py"
+python3 -m athena run "my-workspace:*:hello"
 ```
 
 For any module in a collection `run` folder, the directory path relative to the `run` folder will make up the module name. 
