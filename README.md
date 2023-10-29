@@ -294,6 +294,17 @@ def run(athena: Athena):
     client.post("resources/24")
 ```
 
+## Utilities
+
+You can check the available modules and environments with the `status` command
+
+```sh
+# check for all modules and environments
+python3 -m athena status
+
+# filter to current collection
+python3 -m athena status ".:.:**"
+```
 
 # Development
 

@@ -42,15 +42,7 @@ def create(
     elif item is Createables.collection:
         file.create_collection(os.getcwd(), workspace, name)
 
-@app.command()
-def run(
-        path: Annotated[str, typer.Argument(
-            help="Name of module, collection or workspace to run, in the format workspace:collection:path.to.module."
-            )],
-        environment: Annotated[str, typer.Option(
-            help="environment to run tests against. environment must exist in all referenced workspaces",
-            )] = None
-        ):
+def resolve_module_path(path: str):
     current_dir = os.path.normpath(os.getcwd())
     root, workspace, collection = file.find_context(current_dir)
     paths = path.split(":")
@@ -80,41 +72,31 @@ def run(
             module = "**"
         else:
             module += ".**"
+    return root, workspace, collection, module
+
+
+@app.command()
+def run(
+        path: Annotated[str, typer.Argument(
+            help="Name of module, collection or workspace to run, in the format workspace:collection:path.to.module."
+            )],
+        environment: Annotated[str, typer.Option(
+            help="environment to run tests against. environment must exist in all referenced workspaces",
+            )] = None
+        ):
         
+    root, workspace, collection, module = resolve_module_path(path)
     modules = file.search_modules(root, workspace, collection, module)
     athena_run.run_modules(modules, environment)
 
-class StatusCommand(str, Enum):
-    environments = "environments"
-
 @app.command()
 def status(
-        subcommand: Annotated[StatusCommand, typer.Argument(
-            help="attribute to check status of",
-            case_sensitive=False
-            )],
         path: Annotated[str, typer.Argument(
             help="Name of module, collection or workspace to check status of, in the format workspace:collection:module. Each level can be replaced with `.` or `*` to use the one from the current working directory or to search from the root directory.",
-            )]
+            )]="*:*:**"
         ):
-    root, workspace, collection = file.find_context(os.getcwd())
-    paths = path.split(":")
-    if len(paths) != 3:
-        raise AthenaException("invalid format")
-    if paths[0] == ".":
-        if workspace is None:
-            raise AthenaException("not inside a workspace")
-    else:
-        workspace = paths[0]
-    if paths[1] == ".":
-        if collection is None:
-            raise AthenaException("not inside a collection")
-    else:
-        collection = paths[1]
-    if paths[2] == ".":
-        raise AthenaException("not inside a module")
-
-    modules = file.search_modules(root, workspace, collection, paths[2])
+    root, workspace, collection, module = resolve_module_path(path)
+    modules = file.search_modules(root, workspace, collection, module)
     print("modules:")
     print("\n".join(["  " + i for i in modules.keys()]))
     environments = athena_status.search_environments(root, modules.keys())

@@ -157,7 +157,20 @@ def __search_for_python_files(root: str, current_name=""):
 
 
 def search_modules(root: str, workspace: str, collection: str, module: str):
-    module_re = f"^{re.escape(workspace)}:{re.escape(collection)}:"
+    module_re = "^"
+
+    if workspace == "*":
+        module_re += "[^:]+"
+    else:
+        module_re += re.escape(workspace)
+    module_re += ":"
+
+    if collection == "*":
+        module_re += "[^:]+"
+    else:
+        module_re += re.escape(collection)
+    module_re += ":"
+
     module_name_parts = module.split(".")
     module_name_re = ""
     for part in module_name_parts:
