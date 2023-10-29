@@ -1,4 +1,5 @@
 import os
+from typing import Tuple
 from . import file
 from .exceptions import AthenaException
 
@@ -11,14 +12,14 @@ def _build_file_name(file_name, root, workspace, collection=None):
     return os.path.join(dir_path, file_name)
 
 
-def _try_extract_value_from_resource(resource, name, environment):
+def try_extract_value_from_resource(resource, name, environment) -> Tuple[bool, str]:
     if resource is not None and name in resource:
         value_set = resource[name]
         if value_set is not None and environment in value_set:
             return True, value_set[environment]
         if DEFAULT_ENVIRONMENT_KEY in value_set:
             return True, value_set[DEFAULT_ENVIRONMENT_KEY]
-    return False, None
+    return False, ""
 
 class ResourceLoader:
     def __init__(self):

@@ -294,6 +294,18 @@ def run(athena: Athena):
     client.post("resources/24")
 ```
 
+## Hooks
+
+athena can run pre-request and post-request hooks at the client or request level.
+
+```python
+def run(athena: Athena):
+    client = athena.client(lambda b: b
+        .hook(lambda h: h
+            .before(lambda r: print("I am about to send a request with these headers: ", r.headers))
+            .after(lambda r: print("I just received a response with the reason:", r.reason))))
+```
+
 ## Utilities
 
 You can check the available modules and environments with the `status` command
