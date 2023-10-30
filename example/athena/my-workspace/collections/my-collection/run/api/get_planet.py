@@ -1,7 +1,8 @@
-from athena.client import Athena, jsonify
+from athena.client import Athena, Client, jsonify
 
 def run(athena: Athena):
-    client = athena.fixture.build_api_client(athena)
+    client: Client = athena.infix.build_api_client()
+
     response = client.get("planets/Venus")
     trace = athena.trace()
     print(jsonify(trace, indent=4))

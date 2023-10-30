@@ -312,6 +312,8 @@ def run(athena: Athena):
 
 ### Executable
 
+**status**
+
 You can check the available modules and environments with the `status` command
 
 ```sh
@@ -324,6 +326,8 @@ python3 -m athena status ".:.:**"
 
 ### Imported
 
+**jsonify**
+
 athena provides a `jsonify` tool to json-dump athena objects, like `AthenaTrace`.
 Apart from adding an encoder for athena objects, this method will pass-through arguments
 like `indent` to `json.dumps`.
@@ -335,6 +339,36 @@ def run(athena: Athena):
     athena.client().get("http://haondt.com")
     traces = athena.traces()
     print(jsonify(traces, indent=4))
+```
+
+**infix**
+
+In addition to the `fixture` property, athena also provides a special `infix` property, short for "invoke fixture".
+This property is used similarly to `fixture`, but it can only be called with fixtures that are functions. This field
+will inject the `Athena` instance into the fixture function as the first argument, and pass along the rest. This becomes
+a useful shorthand.
+
+`fixture.py`
+
+```python
+from athena.client import Fixture, Athena
+
+def fixture(fixture: Fixture):
+    def build_client(athena: Athena, flavor: str):
+        ...
+        return client
+    fixture.client = build_client
+```
+
+`my-module.py`
+
+```python
+from athena.client import Athena
+
+def run(athena: Athena):
+    # these are equivalent function calls
+    client = athena.fixture.client(athena, "vanilla")
+    client = athena.infix.client("vanilla")
 ```
 
 # Development

@@ -122,7 +122,7 @@ def inspect(
     modules = file.search_modules(root, workspace, collection, module)
     results = athena_run.run_modules(modules, environment)
     for key, result in results.items():
-        print(f"{key}: {jsonify(result.traces)}")
+        print(f"{key}: {jsonify(result.athena_traces)}")
 
 if __name__ == "__main__":
     try:

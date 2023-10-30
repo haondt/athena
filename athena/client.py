@@ -5,15 +5,38 @@ from .trace import AthenaTrace, ResponseTrace, RequestTrace
 from .request import RequestBuilder, Client
 from .json import AthenaJSONEncoder
 from json import dumps as json_dumps
+import inspect
 
 class _Fixture:
-    _fixtures = {}
+    def __init__(self):
+        self._fixtures = {}
     def __getattr__(self, name) -> Any:
         if name in self._fixtures:
             return self._fixtures.get(name)
         raise KeyError(f"no such fixture registered: {name}")
     def __setattr__(self, name, value) -> None:
-        self._fixtures[name] = value
+        if name.startswith("_"):
+            self.__dict__[name] = value
+        else:
+            self._fixtures[name] = value
+
+class _InvokeFixture:
+    def __init__(self, fixture: _Fixture, injected_arg: Any):
+        self._fixture = fixture
+        self._injected_arg = injected_arg
+    def __getattr__(self, name) -> Callable:
+        attr = self._fixture.__getattr__(name)
+        if inspect.isfunction(attr):
+            def injected_function(*args, **kwargs):
+                return attr(self._injected_arg, *args, **kwargs)
+            return injected_function
+        raise ValueError(f"fixture {name} is not a function")
+    def __setattr__(self, name, value) -> None:
+        if name.startswith("_"):
+            self.__dict__[name] = value
+        else:
+            self._fixtures.__setattr__(name, value)
+
 class Fixture(Protocol):
     def __getattr__(self, name: str) -> Any: ...
     def __setattr__(self, name: str, value: Any) -> None: ...
@@ -26,6 +49,7 @@ class Athena:
         self.__history: List[AthenaTrace] = []
         self.__history_lookup_cache = {}
         self.fixture: Fixture = _Fixture()
+        self.infix: Fixture = _InvokeFixture(self.fixture, self)
 
     def _get_context(self):
         return self.__context

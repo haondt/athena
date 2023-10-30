@@ -46,10 +46,15 @@ def indent(text, level, indentation=None, indent_empty_lines=False):
 def short_format_error(err: Exception):
     return f"{err.__class__.__name__}: {str(err)}"
 
-def long_format_error(err: Exception, truncate_trace: bool=True):
+def long_format_error(err: Exception, truncate_trace: bool=True, target_file: str | None=None):
     frames = traceback.extract_tb(err.__traceback__)
     if truncate_trace:
         frames = [frames[-1]]
+        if target_file is not None:
+            for frame in frames[::-1]:
+                if frame.filename == target_file:
+                  frames = [frame]
+                  break
     message = "\n".join([_long_format_frame(f) for f in frames])
     message += f"\n{err.__class__.__name__}: {str(err)}"
     return message
@@ -63,10 +68,16 @@ def _long_format_frame(frame):
     s = f"File \"{frame.filename}\", line {frame.lineno}, in {frame.name}\n{frame._line.rstrip()}\n{underline}"
     return s
 
-def pretty_format_error(err: Exception, truncate_trace: bool=True):
+def pretty_format_error(err: Exception, truncate_trace: bool=True, target_file: str | None=None):
     frames = traceback.extract_tb(err.__traceback__)
     if truncate_trace:
-        frames = [frames[-1]]
+        target_frame = frames[-1]
+        if target_file is not None:
+            for frame in frames[::-1]:
+                if frame.filename == target_file:
+                  target_frame = frame
+                  break
+        frames = [target_frame]
     message = "\n".join([_pretty_format_frame(f) for f in frames])
     message += f"\n{color(err.__class__.__name__ + ':', colors.red)} {str(err)}"
     return message

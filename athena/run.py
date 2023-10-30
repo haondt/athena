@@ -9,12 +9,15 @@ from .exceptions import AthenaException
 from .resource import ResourceLoader, DEFAULT_ENVIRONMENT_KEY
 import importlib, inspect
 
-class Result:
-    def __init__(self, success: bool, result: Any, traces: List[AthenaTrace], error: Exception | None):
-        self.success = success
-        self.traces = traces
-        self.error = error
-        self.result = result
+class ExecutionTrace:
+    def __init__(self, module_key: str):
+        self.success: bool = False
+        self.athena_traces: List[AthenaTrace] = []
+        self.error: Exception | None = None
+        self.result: Any = None
+        self.filename: str | None  = None
+        self.module_key: str = module_key
+        self.environment: str | None = None
 
     def format_short(self) -> str:
         if not self.success:
@@ -31,7 +34,7 @@ class Result:
             if self.error is not None:
                 message = ""
                 try:
-                    message = pretty_format_error(self.error, truncate_trace=True)
+                    message = pretty_format_error(self.error, truncate_trace=True, target_file=self.filename)
                 except:
                     message = long_format_error(self.error, truncate_trace=False)
                 return f"{color('failed', colors.red)}\n{indent(message, 1, '    │ ', indent_empty_lines=True)}"
@@ -40,7 +43,7 @@ class Result:
         else:
             return f"{color('passed', colors.green)}"
 
-def run_modules(modules, environment: str | None=None) -> Dict[str, Result]:
+def run_modules(modules, environment: str | None=None) -> Dict[str, ExecutionTrace]:
     sys.path[0] = ''
     root = file.find_root(os.getcwd())
     results = {}
@@ -49,7 +52,11 @@ def run_modules(modules, environment: str | None=None) -> Dict[str, Result]:
         results[k] = _run_module(root, k, path, environment)
     return results
 
-def _run_module(module_root, module_key, module_path, environment=None) -> Result:
+def _run_module(module_root, module_key, module_path, environment=None) -> ExecutionTrace:
+    trace = ExecutionTrace(module_key)
+    trace.filename = module_path
+    trace.environment = environment
+
     if environment is None:
         environment = DEFAULT_ENVIRONMENT_KEY
     module_path = os.path.normpath(module_path)
@@ -76,19 +83,22 @@ def _run_module(module_root, module_key, module_path, environment=None) -> Resul
 
     # load workspace fixture
     if os.path.isfile(os.path.join(workspace_fixture_dir, "fixture.py")):
-        success, _, error = __try_execute_module(workspace_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
-        if not success and error is not None:
-            return Result(success, None, athena_instance.traces(), error)
+        success, _, trace.error = __try_execute_module(workspace_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
+        if not success and trace.error is not None:
+            trace.athena_traces = athena_instance.traces()
+            return trace
 
     # load collection fixture
     if os.path.isfile(os.path.join(collection_fixture_dir, "fixture.py")):
-        success, _, error = __try_execute_module(collection_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
-        if not success and error is not None:
-            return Result(success, None, athena_instance.traces(), error)
+        success, _, trace.error = __try_execute_module(collection_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
+        if not success and trace.error is not None:
+            trace.athena_traces = athena_instance.traces()
+            return trace
 
     # execute module
-    success, result, error = __try_execute_module(module_dir, module_name, "run", (athena_instance,))
-    return Result(success, result, athena_instance.traces(), error)
+    trace.success, trace.result, trace.error = __try_execute_module(module_dir, module_name, "run", (athena_instance,))
+    trace.athena_traces = athena_instance.traces()
+    return trace
 
 def __try_execute_module(module_dir, module_name, function_name, function_args):
     sys.path.insert(0, module_dir)
