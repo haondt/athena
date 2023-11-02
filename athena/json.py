@@ -3,7 +3,7 @@ from typing import Any
 
 _serializeable_classes = set()
 
-def mark_serializeable(cls):
+def serializeable(cls):
     _serializeable_classes.add(cls)
     return cls
 

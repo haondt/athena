@@ -12,7 +12,6 @@ any text editor.
 # Usage
 
 ## Setup
-
 Start by running the init in your project directory.
 
 ```sh
@@ -308,6 +307,21 @@ def run(athena: Athena):
             .after(lambda r: print("I just received a response with the reason:", r.reason))))
 ```
 
+## Async Requests
+
+athena can run modules asynchronously, and can send requests asynchronously with `aiohttp`. To run in async mode, simply change the
+`run` function to async. All of the client methods have asynchronous counterparts, and can be run concurrently.
+
+```python
+from athena.client import Athena, Client, jsonify
+import asyncio
+
+async def run(athena: Athena):
+    client = athena.client()
+    tasks =  [client.get_async("https://google.com") for _ in range(10)]
+    await aysncio.gather(*tasks)
+```
+
 ## Utilities
 
 ### Executable
@@ -333,7 +347,7 @@ Apart from adding an encoder for athena objects, this method will pass-through a
 like `indent` to `json.dumps`.
 
 ```python
-from athena.client improt Athena, jsonify
+from athena.client import Athena, jsonify
 
 def run(athena: Athena):
     athena.client().get("http://haondt.com")
@@ -343,9 +357,9 @@ def run(athena: Athena):
 
 **infix**
 
-In addition to the `fixture` property, athena also provides a special `infix` property, short for "invoke fixture".
+In addition to the `fixture` property, athena also provides a special `infix` property, short for "into fixture".
 This property is used similarly to `fixture`, but it can only be called with fixtures that are functions. This field
-will inject the `Athena` instance into the fixture function as the first argument, and pass along the rest. This becomes
+will inject the `Athena` instance into the fixture function as the first argument, and pass along the rest, making for
 a useful shorthand.
 
 `fixture.py`
@@ -356,7 +370,6 @@ from athena.client import Fixture, Athena
 def fixture(fixture: Fixture):
     def build_client(athena: Athena, flavor: str):
         ...
-        return client
     fixture.client = build_client
 ```
 

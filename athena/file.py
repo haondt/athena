@@ -185,6 +185,6 @@ def search_modules(root: str, workspace: str, collection: str, module: str):
 
     return {k:v for k, v in list_modules(root).items() if module_re.match(k)}
 
-def _import_yaml(file):
+def import_yaml(file):
     return yaml.load(file, Loader=yaml.FullLoader)
 

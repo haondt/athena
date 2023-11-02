@@ -1,15 +1,16 @@
+import asyncio
 import typer
 import sys, os
 from typing_extensions import Annotated
 
-from athena.resource import DEFAULT_ENVIRONMENT_KEY
+from .resource import DEFAULT_ENVIRONMENT_KEY
 from . import file
 from . import run as athena_run
 from . import status as athena_status
 from .exceptions import AthenaException
 from enum import Enum
 from .format import colors, color
-from .json import jsonify
+from . import display
 
 app = typer.Typer()
 
@@ -90,9 +91,13 @@ def run(
         
     root, workspace, collection, module = resolve_module_path(path)
     modules = file.search_modules(root, workspace, collection, module)
-    results = athena_run.run_modules(modules, environment)
-    for key, result in results.items():
-        print(f"{key}: {result.format_long()}")
+    loop = asyncio.get_event_loop()
+    try:
+        results = loop.run_until_complete(athena_run.run_modules(modules, environment))
+        for key, result in results.items():
+            print(f"{key}: {result.format_long()}")
+    finally:
+        loop.close()
 
 
 @app.command()
@@ -109,6 +114,7 @@ def status(
     print("environments:")
     print("\n".join(["  " + i for i in environments]))
 
+'''TODO
 @app.command()
 def inspect(
         path: Annotated[str, typer.Argument(
@@ -123,6 +129,26 @@ def inspect(
     results = athena_run.run_modules(modules, environment)
     for key, result in results.items():
         print(f"{key}: {jsonify(result.athena_traces)}")
+'''
+
+@app.command()
+def responses(
+        path: Annotated[str, typer.Argument(
+            help="Name of module, collection or workspace to run, in the format workspace:collection:path.to.module."
+            )],
+        environment: Annotated[str, typer.Option(
+            help="environment to run tests against. environment must exist in all referenced workspaces",
+            )] = DEFAULT_ENVIRONMENT_KEY
+        ):
+    root, workspace, collection, module = resolve_module_path(path)
+    modules = file.search_modules(root, workspace, collection, module)
+    loop = asyncio.get_event_loop()
+    try:
+        results = loop.run_until_complete(athena_run.run_modules(modules, environment))
+        for _, result in results.items():
+            print(f"{display.responses(result)}")
+    finally:
+        loop.close()
 
 if __name__ == "__main__":
     try:

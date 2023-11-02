@@ -1,3 +1,4 @@
+import aiohttp
 from .resource import ResourceLoader, try_extract_value_from_resource
 from .exceptions import AthenaException
 from typing import Any, Callable, List, Protocol
@@ -20,7 +21,7 @@ class _Fixture:
         else:
             self._fixtures[name] = value
 
-class _InvokeFixture:
+class _InjectFixture:
     def __init__(self, fixture: _Fixture, injected_arg: Any):
         self._fixture = fixture
         self._injected_arg = injected_arg
@@ -42,14 +43,16 @@ class Fixture(Protocol):
     def __setattr__(self, name: str, value: Any) -> None: ...
 
 class Athena:
-    def __init__(self, context, environment, resource_loader: ResourceLoader):
+    def __init__(self, context, environment, resource_loader: ResourceLoader, async_session: aiohttp.ClientSession):
         self.__context = context
         self.__resource_loader = resource_loader
         self.__environment = environment
-        self.__history: List[AthenaTrace] = []
+        self.__history: List[AthenaTrace | str] = []
+        self.__pending_requests = {}
         self.__history_lookup_cache = {}
+        self.__async_session = async_session
         self.fixture: Fixture = _Fixture()
-        self.infix: Fixture = _InvokeFixture(self.fixture, self)
+        self.infix: Fixture = _InjectFixture(self.fixture, self)
 
     def _get_context(self):
         return self.__context
@@ -84,20 +87,30 @@ class Athena:
 
         raise AthenaException(f"unable to find secret \"{name}\" with environment \"{self.__environment}\". ensure secrets have at least a default environment")
 
-    def __client_hook(self, trace: AthenaTrace) -> None:
+    def __client_pre_hook(self, trace_id: str) -> None:
+        self.__history.append(trace_id)
+        self.__pending_requests[trace_id] = len(self.__history) - 1
+
+    def __client_post_hook(self, trace: AthenaTrace) -> None:
+        if trace.id in self.__pending_requests:
+            index = self.__pending_requests.pop(trace.id)
+            if index < len(self.__history):
+                self.__history[index] = trace
+                return
         self.__history.append(trace)
 
     def client(self, base_build_request: Callable[[RequestBuilder], RequestBuilder] | None=None, name: str | None=None) -> Client:
-        return Client(base_build_request, name, self.__client_hook)
+        return Client(self.__async_session, base_build_request, name, self.__client_pre_hook, self.__client_post_hook)
 
     def traces(self) -> List[AthenaTrace]:
-        return self.__history.copy()
+        return [i for i in self.__history if isinstance(i, AthenaTrace)]
 
     def trace(self, subject: AthenaTrace | RequestTrace | ResponseTrace | None=None) -> AthenaTrace:
+        traces = self.traces()
         if subject is None:
-            if len(self.__history) == 0:
-                raise AthenaException(f"no traces in history")
-            subject = self.__history[-1]
+            if len(traces) == 0:
+                raise AthenaException(f"no completed traces in history")
+            subject = traces[-1]
 
         is_trace = isinstance(subject, AthenaTrace)
         is_request_trace = isinstance(subject, RequestTrace)
@@ -108,7 +121,7 @@ class Athena:
         if subject in self.__history_lookup_cache:
             return self.__history_lookup_cache[subject]
         trace = None
-        for historic_trace in self.__history:
+        for historic_trace in traces:
             if ((is_trace and historic_trace == subject)
                 or (is_request_trace and historic_trace.request == subject)
                 or (is_response_trace and historic_trace.response == subject)):

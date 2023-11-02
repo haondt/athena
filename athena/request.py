@@ -1,14 +1,17 @@
 from __future__ import annotations
+from time import time
+import uuid
 
-from requests.sessions import PreparedRequest
 from .exceptions import AthenaException
-import requests, json
+import requests
+import aiohttp, asyncio
 from typing import Any, Callable, Dict, List, Tuple
-from .trace import AthenaTrace, ResponseTrace
+from .trace import AthenaTrace, ResponseTrace, AioHttpRequestContainer, LinkedResponse
+
 
 class AthenaRequest:
     def __init__(self):
-        self.auth: Callable[[PreparedRequest], Any] | None | Tuple[str, str] = None
+        self.auth: None | Tuple[str, str] = None
         self.headers: Dict[str, str] = {}
         self.base_url: str = ""
         self.url: str = ""
@@ -29,7 +32,7 @@ class AthenaRequest:
         for hook in self._after_hooks:
             hook(trace)
 
-    def _to_request(self) -> requests.Request:
+    def _to_requests_request(self) -> requests.PreparedRequest:
         return requests.Request(
             method=self.method.upper(),
             url=f"{self.base_url}{self.url}",
@@ -40,7 +43,21 @@ class AthenaRequest:
             auth=self.auth,
             cookies=self.cookies,
             hooks=None
-        )
+        ).prepare()
+
+    def _to_aiohttp_request(self) -> AioHttpRequestContainer:
+        kwargs = {
+            'headers': self.headers,
+            'data': self.data,
+            'json': self.json,
+            'params': self.params,
+            'auth': self.auth,
+            'cookies': self.cookies,
+        }
+        return AioHttpRequestContainer(
+            self.method.upper(),
+            f"{self.base_url}{self.url}",
+            kwargs)
 
 class AuthBuilder:
     def __init__(self):
@@ -112,7 +129,7 @@ class RequestBuilder:
         self.build_steps.append(add_json)
         return self
 
-    def form(self, payload) -> RequestBuilder:
+    def form(self, payload: Dict[str, str | int | float | bool]) -> RequestBuilder:
         def add_data(rq: AthenaRequest):
             rq.data = payload
             return rq
@@ -132,16 +149,30 @@ class RequestBuilder:
         return request
 
 class Client:
-    def __init__(self, partial_request_builder: Callable[[RequestBuilder], RequestBuilder] | None=None, name=None, hook: Callable[[AthenaTrace], None] | None=None):
+    def __init__(
+            self,
+            async_session: aiohttp.ClientSession,
+            partial_request_builder: Callable[[RequestBuilder], RequestBuilder] | None=None,
+            name=None,
+            pre_hook: Callable[[str], None] | None=None,
+            post_hook: Callable[[AthenaTrace], None] | None=None
+        ):
         if partial_request_builder is not None:
             self.__base_request_apply = partial_request_builder(RequestBuilder()).compile()
         else:
             self.__base_request_apply = lambda rq: rq
         self.__session = requests.Session()
+        self.__async_session = async_session
         self.name = name or ""
-        self.__hook = hook or (lambda t: None)
+        self.__pre_hook = pre_hook or (lambda _: None)
+        self.__post_hook = post_hook or (lambda _: None)
+        self.__async_lock = asyncio.Lock()
+
+    def generate_trace_id(self):
+        return str(uuid.uuid4())
 
     def send(self, method, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        trace_id = self.generate_trace_id()
         athena_request = self.__base_request_apply(AthenaRequest())
         athena_request.url = url
         athena_request.method = method
@@ -149,14 +180,55 @@ class Client:
             athena_request = build_request(RequestBuilder()).apply(athena_request)
 
         athena_request._run_before_hooks()
-        request = athena_request._to_request()
-        prepared_request = request.prepare()
+        self.__pre_hook(trace_id)
+        request = athena_request._to_requests_request()
 
-        response = self.__session.send(prepared_request, allow_redirects=False, timeout=30)
-        trace = AthenaTrace(response)
-        self.__hook(trace)
+        start = time()
+        response = self.__session.send(request, allow_redirects=False, timeout=30)
+        end = time()
+
+        trace_name = ""
+        if self.name is not None and len(self.name) > 0:
+            trace_name += self.name + "+"
+        trace_name += athena_request.url
+        trace = AthenaTrace(trace_id, trace_name, response.request, response, start, end)
+
+        self.__post_hook(trace)
         athena_request._run_after_hooks(trace.response)
 
+        return trace.response
+    
+    async def send_async(self, method, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        trace_id = self.generate_trace_id()
+        athena_request = self.__base_request_apply(AthenaRequest())
+        athena_request.url = url
+        athena_request.method = method
+        if build_request is not None:
+            athena_request = build_request(RequestBuilder()).apply(athena_request)
+
+        athena_request._run_before_hooks()
+        async with self.__async_lock:
+            self.__pre_hook(trace_id)
+        request = athena_request._to_aiohttp_request()
+
+        trace = None
+        timeout = aiohttp.ClientTimeout(total=30)
+
+        start = time()
+        async with self.__async_session.request(request.method, request.url, allow_redirects=False, timeout=timeout, **request.kwargs) as response:
+            end = time()
+            trace_name = ""
+            if self.name is not None and len(self.name) > 0:
+                trace_name += self.name + "+"
+            trace_name += athena_request.url
+            assert isinstance(response, LinkedResponse)
+            request = response.athena_get_request()
+            assert request is not None
+            trace = AthenaTrace(trace_id, trace_name, request, response, start, end, response_text=await response.text())
+
+        async with self.__async_lock:
+            self.__post_hook(trace)
+        athena_request._run_after_hooks(trace.response)
         return trace.response
 
     def get(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
@@ -167,3 +239,11 @@ class Client:
         return self.send("delete", url, build_request)
     def put(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
         return self.send("put", url, build_request)
+    async def get_async(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        return await self.send_async("get", url, build_request)
+    async def post_async(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        return await self.send_async("post", url, build_request)
+    async def delete_async(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        return await self.send_async("delete", url, build_request)
+    async def put_async(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        return await self.send_async("put", url, build_request)

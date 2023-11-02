@@ -58,7 +58,7 @@ class ResourceLoader:
                 if os.path.isfile(file_path):
                     with open(file_path, "r") as f:
                         file_string = f.read()
-                        serialized_file = file._import_yaml(file_string)
+                        serialized_file = file.import_yaml(file_string)
                         if yaml_root_key in serialized_file:
                             self.loaded_resources[file_path] = serialized_file[yaml_root_key]
                         else:
