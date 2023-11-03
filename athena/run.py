@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 from .format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
 from .trace import AthenaTrace, LinkedRequest, LinkedResponse
 from . import file, cache
-from .client import Athena
+from .client import Athena, Context
 from .exceptions import AthenaException
 from .resource import ResourceLoader, DEFAULT_ENVIRONMENT_KEY
 import importlib, inspect
@@ -75,18 +75,21 @@ async def _run_module(module_root, module_key, module_path, athena_cache: cache.
     workspace_fixture_dir = os.path.join(module_root, module_workspace)
     collection_fixture_dir = os.path.join(module_root, module_workspace, "collections", module_collection)
 
+    context = Context(
+        environment,
+        module_key,
+        module_root,
+        workspace_fixture_dir,
+        collection_fixture_dir
+    )
     resource_loader = ResourceLoader()
     async with aiohttp.ClientSession(request_class=LinkedRequest, response_class=LinkedResponse) as session:
         athena_instance = Athena(
-            (
-                module_root,
-                module_workspace,
-                module_collection),
-                environment,
-                resource_loader,
-                session,
-                athena_cache.data
-            )
+            context,
+            resource_loader,
+            session,
+            athena_cache.data
+        )
 
         try:
             # load workspace fixture

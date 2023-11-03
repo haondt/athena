@@ -1,12 +1,13 @@
 import aiohttp
 from .resource import ResourceLoader, try_extract_value_from_resource
 from .exceptions import AthenaException
-from typing import Any, Callable, List, Protocol, Dict
+from typing import Any, Callable, List, Protocol, Dict, Tuple
 from .trace import AthenaTrace, ResponseTrace, RequestTrace
 from .request import RequestBuilder, Client
-from .json import AthenaJSONEncoder
+from .json import AthenaJSONEncoder, serializeable
 from json import dumps as json_dumps
 import inspect
+import os
 
 class _Fixture:
     def __init__(self):
@@ -84,11 +85,30 @@ class Cache:
     def clear(self) -> None:
         self._data.clear()
 
+@serializeable
+class Context:
+    def __init__(self,
+        environment: str,
+        key: str,
+        root_path: str,
+        workspace_path: str,
+        collection_path: str
+    ):
+        self.environment = environment
+        self.key = key
+        self.root_path = root_path
+        self.workspace_path = workspace_path
+        self.collection_path = collection_path
+        self.workspace, self.collection, self.module = self.key.split(":")
+
 class Athena:
-    def __init__(self, context, environment, resource_loader: ResourceLoader, async_session: aiohttp.ClientSession, cache_values: Dict):
-        self.__context = context
+    def __init__(self,
+        context: Context,
+        resource_loader: ResourceLoader,
+        async_session: aiohttp.ClientSession, 
+        cache_values: Dict
+    ):
         self.__resource_loader = resource_loader
-        self.__environment = environment
         self.__history: List[AthenaTrace | str] = []
         self.__pending_requests = {}
         self.__history_lookup_cache = {}
@@ -96,39 +116,37 @@ class Athena:
         self.fixture: Fixture = _Fixture()
         self.infix: Fixture = _InjectFixture(self.fixture, self)
         self.cache = Cache(cache_values)
-
-    def _get_context(self):
-        return self.__context
+        self.context = context
 
     def variable(self, name: str) -> str:
-        root, workspace, collection = self._get_context()
+        root, workspace, collection = self.context.root_path, self.context.workspace, self.context.collection
 
         collection_variables = self.__resource_loader.load_collection_variables(root, workspace, collection)
-        success, value = try_extract_value_from_resource(collection_variables, name, self.__environment)
+        success, value = try_extract_value_from_resource(collection_variables, name, self.context.environment)
         if success:
             return value
 
         workspace_variables = self.__resource_loader.load_workspace_variables(root, workspace)
-        success, value = try_extract_value_from_resource(workspace_variables, name, self.__environment)
+        success, value = try_extract_value_from_resource(workspace_variables, name, self.context.environment)
         if success:
             return value
 
-        raise AthenaException(f"unable to find variable \"{name}\" with environment \"{self.__environment}\". ensure variables have at least a default environment.")
+        raise AthenaException(f"unable to find variable \"{name}\" with environment \"{self.context.environment}\". ensure variables have at least a default environment.")
 
     def secret(self, name: str) -> str:
-        root, workspace, collection = self._get_context()
+        root, workspace, collection = self.context.root_path, self.context.workspace, self.context.collection
 
         collection_secrets = self.__resource_loader.load_collection_secrets(root, workspace, collection)
-        success, value = try_extract_value_from_resource(collection_secrets, name, self.__environment)
+        success, value = try_extract_value_from_resource(collection_secrets, name, self.context.environment)
         if success:
             return value
 
         workspace_secrets = self.__resource_loader.load_workspace_secrets(root, workspace)
-        success, value = try_extract_value_from_resource(workspace_secrets, name, self.__environment)
+        success, value = try_extract_value_from_resource(workspace_secrets, name, self.context.environment)
         if success:
             return value
 
-        raise AthenaException(f"unable to find secret \"{name}\" with environment \"{self.__environment}\". ensure secrets have at least a default environment")
+        raise AthenaException(f"unable to find secret \"{name}\" with environment \"{self.context.environment}\". ensure secrets have at least a default environment")
 
     def __client_pre_hook(self, trace_id: str) -> None:
         self.__history.append(trace_id)

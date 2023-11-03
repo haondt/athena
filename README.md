@@ -405,6 +405,18 @@ def run(athena: Athena):
     client = athena.infix.client("vanilla")
 ```
 
+**context**
+
+the `context` property provides information about the runtime environment of the module.
+
+```python
+from athena.client import Athena
+
+def run(athena: Athena):
+    print("current workspace:", athena.context.workspace)
+    print("current environment:", athena.context.environment)
+```
+
 # Development
 
 To get started, set up a venv
