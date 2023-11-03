@@ -17,7 +17,8 @@ def responses(trace: ExecutionTrace):
         output += f"Warning: execution completed with, with error {short_format_error(trace.error)}\n"
 
     output += f"{trace.module_key}\n"
-    output += f"{_create_duration_view(trace, output_max_width)}\n"
+    if len(trace.athena_traces) > 0:
+        output += f"{_create_duration_view(trace, output_max_width)}\n"
 
     return output
 

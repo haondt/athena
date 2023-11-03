@@ -1,9 +1,9 @@
 import os, sys
 from typing import Any, Dict, List
 
-from athena.format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
-from athena.trace import AthenaTrace, LinkedRequest, LinkedResponse
-from . import file
+from .format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
+from .trace import AthenaTrace, LinkedRequest, LinkedResponse
+from . import file, cache
 from .client import Athena
 from .exceptions import AthenaException
 from .resource import ResourceLoader, DEFAULT_ENVIRONMENT_KEY
@@ -47,13 +47,15 @@ class ExecutionTrace:
 async def run_modules(modules, environment: str | None=None) -> Dict[str, ExecutionTrace]:
     sys.path[0] = ''
     root = file.find_root(os.getcwd())
+    athena_cache = cache.load(root)
     results = {}
     for k in modules:
         path = modules[k]
-        results[k] = await _run_module(root, k, path, environment)
+        results[k] = await _run_module(root, k, path, athena_cache, environment)
+    cache.save(root, athena_cache)
     return results
 
-async def _run_module(module_root, module_key, module_path, environment=None) -> ExecutionTrace:
+async def _run_module(module_root, module_key, module_path, athena_cache: cache.Cache, environment=None) -> ExecutionTrace:
     trace = ExecutionTrace(module_key)
     trace.filename = module_path
     trace.environment = environment
@@ -82,27 +84,32 @@ async def _run_module(module_root, module_key, module_path, environment=None) ->
                 module_collection),
                 environment,
                 resource_loader,
-                session
+                session,
+                athena_cache.data
             )
 
-        # load workspace fixture
-        if os.path.isfile(os.path.join(workspace_fixture_dir, "fixture.py")):
-            success, _, trace.error = __try_execute_module(workspace_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
-            if not success and trace.error is not None:
-                trace.athena_traces = athena_instance.traces()
-                return trace
+        try:
+            # load workspace fixture
+            if os.path.isfile(os.path.join(workspace_fixture_dir, "fixture.py")):
+                success, _, trace.error = __try_execute_module(workspace_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
+                if not success and trace.error is not None:
+                    trace.athena_traces = athena_instance.traces()
+                    return trace
 
-        # load collection fixture
-        if os.path.isfile(os.path.join(collection_fixture_dir, "fixture.py")):
-            success, _, trace.error = __try_execute_module(collection_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
-            if not success and trace.error is not None:
-                trace.athena_traces = athena_instance.traces()
-                return trace
+            # load collection fixture
+            if os.path.isfile(os.path.join(collection_fixture_dir, "fixture.py")):
+                success, _, trace.error = __try_execute_module(collection_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
+                if not success and trace.error is not None:
+                    trace.athena_traces = athena_instance.traces()
+                    return trace
 
-        # execute module
-        trace.success, trace.result, trace.error = await __try_execute_module_async(module_dir, module_name, "run", (athena_instance,))
-        trace.athena_traces = athena_instance.traces()
-        return trace
+            # execute module
+            trace.success, trace.result, trace.error = await __try_execute_module_async(module_dir, module_name, "run", (athena_instance,))
+            trace.athena_traces = athena_instance.traces()
+            return trace
+
+        finally:
+            athena_cache.data = athena_instance.cache._data
 
 def __try_execute_module(module_dir, module_name, function_name, function_args):
     sys.path.insert(0, module_dir)

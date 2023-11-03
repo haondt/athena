@@ -13,8 +13,8 @@ def example(athena: Athena):
     print(jsonify(trace))
 
 def example2(athena: Athena):
-    secret = athena.get_secret("some_secret_key")
-    base_url = athena.get_variable("base_url")
+    secret = athena.secret("some_secret_key")
+    base_url = athena.variable("base_url")
 
     client = athena.client(lambda r: r
         .base_url(base_url)

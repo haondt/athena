@@ -6,7 +6,7 @@ athena is a file-based rest api client.
 
 I can store my athena workspaces inside the repo of the project they test. Something I was originally doing with ThunderClient before they changed their payment
 model, but even better since I can leverage some python scripting and automation inside my test cases. 
-It's also much more lightweight than something like Postman. Since the workbook is just a collection of plaintext files, you can navigate an athena directory with
+It's also much more lightweight than something like Postman. Since the workbook is just a collection of plaintext files, you can navigate an athena project with
 any text editor.
 
 # Usage
@@ -211,7 +211,7 @@ athena will provide variables and secrets to the running method through the `Ath
 from athena.client import Athena
 
 def run(athena: Athena):
-    password = athena.get_secret("password")
+    password = athena.secret("password")
 ```
 
 This will reference the `variables.yml` and `secrets.yml` environment files. For a given module,
@@ -254,6 +254,27 @@ which takes a module mask argument as well.
 python3 -m athena status environments "my-workspace:*:hello.py"
 ```
 
+## Cache
+
+athena also provides a basic key (`str`) - value (`str`, `int`, `float`, `bool`) cache. The cache is global and is persisted between runs.
+
+```python
+from athena.client import Athena, time
+
+def refresh_token(athena: Athena):
+    if "token" not in athena.cache \
+        or "token_exp" not in athena.cache \
+        or athena.cache["token_exp"] < time.time():
+        athena.cache["token"], athena.cache["token_exp"] = athena.infix.get_token()
+    return athena.cache["token"]
+
+def run(athena: Athena):
+    token = refresh_token(athena)
+    client = athena.infix.client(token)
+    client.get("path/to/resource")
+```
+
+
 ## Fixtures
 
 athena supports adding fixtures at the workspace and collection level. In both of these directories is a file called `fixture.py` with the following (default) contents:
@@ -274,8 +295,8 @@ from athena.client import Fixture, Athena
 
 def fixture(fixture: Fixture):
     def build_client(athena: Athena):
-        base_url = athena.get_variable("base_url")
-        api_key = athena.get_secret("api_key")
+        base_url = athena.variable("base_url")
+        api_key = athena.secret("api_key")
 
         client = athena.client(lambda b: b
             .base_url(base_url)

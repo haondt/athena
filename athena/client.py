@@ -1,7 +1,7 @@
 import aiohttp
 from .resource import ResourceLoader, try_extract_value_from_resource
 from .exceptions import AthenaException
-from typing import Any, Callable, List, Protocol
+from typing import Any, Callable, List, Protocol, Dict
 from .trace import AthenaTrace, ResponseTrace, RequestTrace
 from .request import RequestBuilder, Client
 from .json import AthenaJSONEncoder
@@ -42,8 +42,50 @@ class Fixture(Protocol):
     def __getattr__(self, name: str) -> Any: ...
     def __setattr__(self, name: str, value: Any) -> None: ...
 
+_cache_value_types = str | int | float | bool
+class Cache:
+    def __init__(self, existing_data: Dict[Any, Any] | None=None):
+        self._data: Dict[str, _cache_value_types] = {}
+        if existing_data is not None:
+            for k, v in existing_data.items():
+                if isinstance(k, str) and isinstance(v, _cache_value_types):
+                    self._data[k] = v
+
+    def _assert_kvp(self, key: Any, value: Any):
+        self._assert_key_type(key)
+        self._assert_value_type(value)
+    def _assert_key_type(self, key: Any):
+        if not isinstance(key, str):
+            raise ValueError(f"cannot index with key of type {type(key)}")
+    def _assert_value_type(self, value: Any):
+        if not isinstance(value, _cache_value_types):
+            raise ValueError(f"cannot cache item of type {type(value)}")
+
+    def __setitem__(self, key: str, value: _cache_value_types) -> None:
+        self._assert_kvp(key, value)
+        self._data[key] = value
+    def __getitem__(self, key: str) -> Any:
+        self._assert_key_type(key)
+        if key in self._data:
+            return self._data[key]
+        raise KeyError(f"'{key}' not found")
+    def __delitem__(self, key: str) -> None:
+        self._assert_key_type(key)
+        if key in self._data:
+            del self._data[key]
+    def __contains__(self, key: str) -> bool:
+        self._assert_key_type(key)
+        return key in self._data
+    def pop(self, key: str) -> Any:
+        self._assert_key_type(key)
+        if key in self._data:
+            return self._data.pop(key)
+        raise KeyError(f"'{key}' not found")
+    def clear(self) -> None:
+        self._data.clear()
+
 class Athena:
-    def __init__(self, context, environment, resource_loader: ResourceLoader, async_session: aiohttp.ClientSession):
+    def __init__(self, context, environment, resource_loader: ResourceLoader, async_session: aiohttp.ClientSession, cache_values: Dict):
         self.__context = context
         self.__resource_loader = resource_loader
         self.__environment = environment
@@ -53,11 +95,12 @@ class Athena:
         self.__async_session = async_session
         self.fixture: Fixture = _Fixture()
         self.infix: Fixture = _InjectFixture(self.fixture, self)
+        self.cache = Cache(cache_values)
 
     def _get_context(self):
         return self.__context
 
-    def get_variable(self, name: str) -> str:
+    def variable(self, name: str) -> str:
         root, workspace, collection = self._get_context()
 
         collection_variables = self.__resource_loader.load_collection_variables(root, workspace, collection)
@@ -72,7 +115,7 @@ class Athena:
 
         raise AthenaException(f"unable to find variable \"{name}\" with environment \"{self.__environment}\". ensure variables have at least a default environment.")
 
-    def get_secret(self, name: str) -> str:
+    def secret(self, name: str) -> str:
         root, workspace, collection = self._get_context()
 
         collection_secrets = self.__resource_loader.load_collection_secrets(root, workspace, collection)

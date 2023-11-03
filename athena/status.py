@@ -22,14 +22,3 @@ def search_environments(root, module_keys):
         all_environments |= extract_environments(collection_secrets)
         all_environments |= extract_environments(workspace_secrets)
     return all_environments
-
-
-
-
-
-
-
-
-
-
-
