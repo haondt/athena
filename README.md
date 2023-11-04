@@ -175,15 +175,12 @@ my-workspace:my-collection:toast.blue
 my-workspace:my-second-collection:red
 ```
 
-The module key parameter can contain wild cards. A single period (`.`) in any field will use the current directory.
+The workspace and collection parts can contain wild cards. A single period (`.`) in either field will use the current directory.
 A single asterisk (`*`) will use all directories.
 
 ```sh
 # run all modules in "my-workspace" named "hello.py"
-python3 -m athena run "my-workspace:*:hello.py"
-
-# run all modules in the collection of the current directory
-python3 -m athena run ".:.:*"
+python3 -m athena run "my-workspace:*:hello"
 ```
 
 For the module name, asterisks can be used to denote "any module/directory", and double asterisks (`**`) can be used to denote any subdirectory.
@@ -198,7 +195,10 @@ python3 -m athena run "*:*:*"
 # runs only blue.py
 python3 -m athena run "*:*:*.*"
 python3 -m athena run "*:*:toast.*"
-python3 -m athena run "*:*:**.blue.py"
+python3 -m athena run "*:*:**blue"
+
+# run all modules in the collection of the current directory
+python3 -m athena run ".:.:**"
 ```
 
 Internally, asterisks are compiled into the regular expression `[^.]+` and double asterisks are compiled into `.+`.
@@ -306,7 +306,7 @@ def fixture(fixture: Fixture):
     fixture.client = build_client
 ```
 
-`my-module.py`
+`my_module.py`
 
 ```python
 from athena.client import Athena
@@ -394,7 +394,7 @@ def fixture(fixture: Fixture):
     fixture.client = build_client
 ```
 
-`my-module.py`
+`my_module.py`
 
 ```python
 from athena.client import Athena
@@ -419,7 +419,7 @@ def run(athena: Athena):
 
 **assertions**
 
-athena comes bundled with a small wrapper around the `assert` statement called `athert`. This wrapper provides
+athena comes bundled with a thin wrapper around the `assert` statement called `athert`. This wrapper provides
 more informative error messages and a fluent syntax.
 
 ```python

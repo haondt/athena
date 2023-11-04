@@ -174,10 +174,18 @@ def search_modules(root: str, workspace: str, collection: str, module: str):
     for part in module_name_parts:
         if module_name_re != "":
             module_name_re += r"\."
-        if part == "*":
-            module_name_re += "[^.]+"
-        elif part == "**":
-            module_name_re += ".+"
+        if part.startswith("**"):
+            if len(part) > 2:
+                module_name_re += ".*"
+                module_name_re += re.escape(part[2:])
+            else:
+                module_name_re += ".+"
+        elif part.startswith("*"):
+            if len(part) > 1:
+                module_name_re += "[^.]*"
+                module_name_re += re.escape(part[1:])
+            else:
+                module_name_re += "[^.]+"
         else:
             module_name_re += re.escape(part)
     module_re += f"{module_name_re}$"
