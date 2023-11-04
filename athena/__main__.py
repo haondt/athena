@@ -46,38 +46,62 @@ def create(
     elif item is Createables.collection:
         file.create_collection(os.getcwd(), workspace if workspace != "" else None, name)
 
-def resolve_module_path(path: str):
-    current_dir = os.path.normpath(os.getcwd())
-    root, workspace, collection = file.find_context(current_dir)
-    paths = path.split(":")
-    module = paths[2]
-    if len(paths) != 3:
-        raise AthenaException("invalid format")
-    if paths[0] == ".":
-        if workspace is None:
-            raise AthenaException("not inside a workspace")
-    else:
-        workspace = paths[0]
-    if paths[1] == ".":
-        if collection is None:
-            raise AthenaException("not inside a collection")
-    else:
-        collection = paths[1]
-    if paths[2] == ".":
-        if collection is None:
-            raise AthenaException("not inside a module")
-        collection_path = os.path.join(root, workspace, "collections", collection)
-        relative_path = os.path.relpath(current_dir, collection_path)
-        parts = relative_path.split(os.path.sep)
-        if parts[0] != "run":
-            raise AthenaException("not inside a module")
-        module = ".".join(parts[1:])
-        if len(module) == 0:
-            module = "**"
+def resolve_module_path(path_or_key: str):
+    if path_or_key.count(":") == 2:
+        current_dir = os.path.normpath(os.getcwd())
+        root, workspace, collection = file.find_context(current_dir)
+        paths = path_or_key.split(":")
+        module = paths[2]
+        if len(paths) != 3:
+            raise AthenaException("invalid format")
+        if paths[0] == ".":
+            if workspace is None:
+                raise AthenaException("not inside a workspace")
         else:
-            module += ".**"
-    return root, workspace, collection, module
+            workspace = paths[0]
+        if paths[1] == ".":
+            if collection is None:
+                raise AthenaException("not inside a collection")
+        else:
+            collection = paths[1]
+        if paths[2] == ".":
+            if collection is None:
+                raise AthenaException("not inside a module")
+            collection_path = os.path.join(root, workspace, "collections", collection)
+            relative_path = os.path.relpath(current_dir, collection_path)
+            parts = relative_path.split(os.path.sep)
+            if parts[0] != "run":
+                raise AthenaException("not inside a module")
+            module = ".".join(parts[1:])
+            if len(module) == 0:
+                module = "**"
+            else:
+                module += ".**"
+        return root, workspace, collection, module
+    else:
+        path_or_key = os.path.abspath(path_or_key)
+        if not os.path.exists(path_or_key):
+            raise AthenaException(f"no such file or directory: {path_or_key}")
+        root, workspace, collection = file.find_context(path_or_key)
+        if workspace is not None and collection is not None:
+            base_path = os.path.join(root, workspace, "collections", collection)
+            rel_path = os.path.relpath(path_or_key, base_path)
+            rel_path_parts = rel_path.split(os.path.sep)
 
+            if rel_path == "." or \
+                    (len(rel_path_parts) == 1 and rel_path_parts[0] == "run"):
+                return root, workspace, collection, "**"
+
+            if not rel_path_parts[0] == "run":
+                raise AthenaException("cannot run modules outside of `run` directory")
+
+            module_part = ".".join(rel_path_parts[1:])
+            if module_part.endswith(".py"):
+                module_part = module_part[:-3]
+            else:
+                module_part = module_part + ".**"
+            return root, workspace, collection, module_part
+        return root, workspace or "*", collection or "*", "**"
 
 @app.command()
 def run(
@@ -93,7 +117,7 @@ def run(
     modules = file.search_modules(root, workspace, collection, module)
     loop = asyncio.get_event_loop()
     try:
-        results = loop.run_until_complete(athena_run.run_modules(modules, environment))
+        results = loop.run_until_complete(athena_run.run_modules(root, modules, environment))
         for key, result in results.items():
             print(f"{key}: {result.format_long()}")
     finally:
@@ -144,7 +168,7 @@ def responses(
     modules = file.search_modules(root, workspace, collection, module)
     loop = asyncio.get_event_loop()
     try:
-        results = loop.run_until_complete(athena_run.run_modules(modules, environment))
+        results = loop.run_until_complete(athena_run.run_modules(root, modules, environment))
         for _, result in results.items():
             print(f"{display.responses(result)}")
     finally:

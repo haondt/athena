@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 from .format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
 from .trace import AthenaTrace, LinkedRequest, LinkedResponse
-from . import file, cache
+from . import cache
 from .client import Athena, Context
 from .exceptions import AthenaException
 from .resource import ResourceLoader, DEFAULT_ENVIRONMENT_KEY
@@ -44,9 +44,8 @@ class ExecutionTrace:
         else:
             return f"{color('passed', colors.green)}"
 
-async def run_modules(modules, environment: str | None=None) -> Dict[str, ExecutionTrace]:
+async def run_modules(root, modules, environment: str | None=None) -> Dict[str, ExecutionTrace]:
     sys.path[0] = ''
-    root = file.find_root(os.getcwd())
     athena_cache = cache.load(root)
     results = {}
     for k in modules:

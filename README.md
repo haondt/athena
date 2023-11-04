@@ -147,9 +147,19 @@ def run(athena: Athena):
 
 ## Running tests
 
-athena can search the directory for modules to execute. Use `athena run` to start.
-This command will take an argument in the form of `workspace:collection:module`, and run all the modules that match.
+athena can search the directory for modules to execute. Use `athena run` to start, and provide an argument of the module to run.
+This can be a path to the module or to a directory along the module hierarchy. In the latter case, athena will run all the modules
+it can find inside that directory.
 
+```sh
+# run all the modules inside the api directory
+python3 -m athena run /path/to/athena/my-workspace/collections/my-collection/run/api
+```
+
+### Module keys
+
+Any command that takes a module path can also take an argument of the form `workspace:collection:module`, and run all the modules that match.
+This key will be computed relative to the current working directory, and allows for more precision in determining which modules to run.
 
 ```sh
 # run all modules in "my-workspace" named "hello.py"
