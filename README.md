@@ -417,6 +417,31 @@ def run(athena: Athena):
     print("current environment:", athena.context.environment)
 ```
 
+**assertions**
+
+athena comes bundled with a small wrapper around the `assert` statement called `athert`. This wrapper provides
+more informative error messages and a fluent syntax.
+
+```python
+from athena.client import Athena, Client
+from athena.test import athert
+
+def run(athena: Athena):
+    client: Client = athena.infix.build_client()
+    response = client.get("path/to/resource")
+
+    athert(response.status_code).equals(200)
+```
+
+```sh
+$ python3 -m athena run "*:*:my_module"
+my-workspace:my-collection:my_module: failed
+    │ File "/home/haondt/projects/my-project/athena/my-workspace/collections/my-collection/run/my_module.py", line 8, in run
+    │     athert(response.status_code).equals(200)
+    │
+    │ AssertionError: expected `200` but found `404`
+```
+
 # Development
 
 To get started, set up a venv

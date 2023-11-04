@@ -1,13 +1,13 @@
 import aiohttp
+
 from .resource import ResourceLoader, try_extract_value_from_resource
 from .exceptions import AthenaException
-from typing import Any, Callable, List, Protocol, Dict, Tuple
+from typing import Any, Callable, List, Protocol, Dict
 from .trace import AthenaTrace, ResponseTrace, RequestTrace
 from .request import RequestBuilder, Client
 from .json import AthenaJSONEncoder, serializeable
 from json import dumps as json_dumps
 import inspect
-import os
 
 class _Fixture:
     def __init__(self):
