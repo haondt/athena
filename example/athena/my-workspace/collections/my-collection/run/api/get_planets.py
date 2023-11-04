@@ -1,8 +1,9 @@
 from athena.client import Athena
+from athena.test import athert
 
 def run(athena: Athena):
     client = athena.fixture.build_client(athena)
     response = client.get("api/planets")
     
     # this will fail due to the request being unauthorized
-    assert response.status_code == 200
+    athert(response.status_code).equals(200)

@@ -1,12 +1,12 @@
 import os, sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Callable
 
 from .format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
 from .trace import AthenaTrace, LinkedRequest, LinkedResponse
 from . import cache
 from .client import Athena, Context
 from .exceptions import AthenaException
-from .resource import ResourceLoader, DEFAULT_ENVIRONMENT_KEY
+from .resource import ResourceLoader
 import importlib, inspect
 import aiohttp
 
@@ -44,14 +44,18 @@ class ExecutionTrace:
         else:
             return f"{color('passed', colors.green)}"
 
-async def run_modules(root, modules, environment: str | None=None) -> Dict[str, ExecutionTrace]:
+async def run_modules(root, modules, environment: str | None=None, module_completed_callback: Callable[[str, ExecutionTrace], None] | None=None) -> Dict[str, ExecutionTrace]:
     sys.path[0] = ''
     athena_cache = cache.load(root)
     results = {}
-    for k in modules:
-        path = modules[k]
-        results[k] = await _run_module(root, k, path, athena_cache, environment)
-    cache.save(root, athena_cache)
+    try:
+        for k in modules:
+            path = modules[k]
+            results[k] = await _run_module(root, k, path, athena_cache, environment)
+            if module_completed_callback is not None:
+                module_completed_callback(k, results[k])
+    finally:
+        cache.save(root, athena_cache)
     return results
 
 async def _run_module(module_root, module_key, module_path, athena_cache: cache.Cache, environment=None) -> ExecutionTrace:
@@ -59,8 +63,6 @@ async def _run_module(module_root, module_key, module_path, athena_cache: cache.
     trace.filename = module_path
     trace.environment = environment
 
-    if environment is None:
-        environment = DEFAULT_ENVIRONMENT_KEY
     module_path = os.path.normpath(module_path)
     if not os.path.isfile(module_path):
         raise AthenaException(f"cannot find module at {module_path}")

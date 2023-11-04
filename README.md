@@ -15,7 +15,7 @@ any text editor.
 Start by running the init in your project directory.
 
 ```sh
-python3 -m athena init
+python3 -m athena init .
 ```
 
 This will create an `athena` directory.
@@ -31,7 +31,7 @@ Enter this directory, and create a workspace
 
 ```sh
 cd athena
-python3 -m athena create workspace --name my-workspace
+python3 -m athena create workspace my-workspace
 ```
 
 This will create a directory for the workspace and set up some environment files.
@@ -52,7 +52,7 @@ This will create a directory for the workspace and set up some environment files
 Lastly, create a new collection inside the workspace
 
 ```sh
-python3 -m athena create collection --name my-collection --workspace my-workspace
+python3 -m athena create collection my-collection -w my-workspace
 ```
 
 This will add a new collection to the collections directory.
@@ -461,8 +461,15 @@ python3 -m venv venv
 . venv/bin/activate
 ```
 
-and install athena
+and install the dev dependencies
 
 ```sh
-python3 -m pip install athena
+python3 -m pip install -r dev-requirements.txt
+```
+
+athena can be installed in the venv to use in a test project
+
+```sh
+cd src
+python3 -m pip install .
 ```

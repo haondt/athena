@@ -2,7 +2,12 @@ import os, yaml, re
 from .exceptions import AthenaException
 
 def init(base_dir: str):
+    base_dir = os.path.abspath(base_dir)
     base_dir = os.path.normpath(base_dir)
+    if not os.path.exists(base_dir):
+        raise AthenaException(f"path `{base_dir}` does not exist")
+    if not os.path.isdir(base_dir):
+        raise AthenaException(f"`{base_dir}` is not a directory")
     path = os.path.join(base_dir, "athena")
     if os.path.exists(path):
         raise AthenaException(f"path `{path}` already exists")
@@ -61,8 +66,8 @@ def create_collection(current_dir: str, workspace: str | None, name: str):
     if workspace is not None:
         workspace_path = os.path.join(root, workspace)
         if os.path.exists(workspace_path):
-            if os.path.isfile(workspace_path):
-                raise AthenaException(f"cannot create collection {name}: workspace at `{workspace_path}` is a file")
+            if not os.path.isdir(workspace_path):
+                raise AthenaException(f"cannot create collection {name}: workspace at `{workspace_path}` is not a directory")
         else:
             raise AthenaException(f"cannot create collection {name}: workspace at `{workspace_path}` does not exist")
     else:
@@ -101,6 +106,8 @@ def create_collection(current_dir: str, workspace: str | None, name: str):
 
     run_dir = os.path.join(collection_path, "run")
     os.mkdir(run_dir)
+
+    return collection_path
 
 def find_context(current_dir: str):
     workspace, collection = None, None
@@ -193,6 +200,6 @@ def search_modules(root: str, workspace: str, collection: str, module: str):
 
     return {k:v for k, v in list_modules(root).items() if module_re.match(k)}
 
-def import_yaml(file):
-    return yaml.load(file, Loader=yaml.FullLoader)
+def import_yaml(file) -> object:
+     return yaml.load(file, Loader=yaml.FullLoader)
 

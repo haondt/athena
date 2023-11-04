@@ -1,6 +1,6 @@
 import aiohttp
 
-from .resource import ResourceLoader, try_extract_value_from_resource
+from .resource import ResourceLoader, try_extract_value_from_resource, _resource_value_type
 from .exceptions import AthenaException
 from typing import Any, Callable, List, Protocol, Dict
 from .trace import AthenaTrace, ResponseTrace, RequestTrace
@@ -88,13 +88,14 @@ class Cache:
 @serializeable
 class Context:
     def __init__(self,
-        environment: str,
+        environment: str | None,
         key: str,
         root_path: str,
         workspace_path: str,
         collection_path: str
     ):
-        self.environment = environment
+        self._environment = environment
+        self.environment = str(environment)
         self.key = key
         self.root_path = root_path
         self.workspace_path = workspace_path
@@ -118,31 +119,31 @@ class Athena:
         self.cache = Cache(cache_values)
         self.context = context
 
-    def variable(self, name: str) -> str:
+    def variable(self, name: str) -> _resource_value_type:
         root, workspace, collection = self.context.root_path, self.context.workspace, self.context.collection
 
         collection_variables = self.__resource_loader.load_collection_variables(root, workspace, collection)
-        success, value = try_extract_value_from_resource(collection_variables, name, self.context.environment)
+        success, value = try_extract_value_from_resource(collection_variables, name, self.context._environment)
         if success:
             return value
 
         workspace_variables = self.__resource_loader.load_workspace_variables(root, workspace)
-        success, value = try_extract_value_from_resource(workspace_variables, name, self.context.environment)
+        success, value = try_extract_value_from_resource(workspace_variables, name, self.context._environment)
         if success:
             return value
 
         raise AthenaException(f"unable to find variable \"{name}\" with environment \"{self.context.environment}\". ensure variables have at least a default environment.")
 
-    def secret(self, name: str) -> str:
+    def secret(self, name: str) -> _resource_value_type:
         root, workspace, collection = self.context.root_path, self.context.workspace, self.context.collection
 
         collection_secrets = self.__resource_loader.load_collection_secrets(root, workspace, collection)
-        success, value = try_extract_value_from_resource(collection_secrets, name, self.context.environment)
+        success, value = try_extract_value_from_resource(collection_secrets, name, self.context._environment)
         if success:
             return value
 
         workspace_secrets = self.__resource_loader.load_workspace_secrets(root, workspace)
-        success, value = try_extract_value_from_resource(workspace_secrets, name, self.context.environment)
+        success, value = try_extract_value_from_resource(workspace_secrets, name, self.context._environment)
         if success:
             return value
 
