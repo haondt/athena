@@ -87,6 +87,8 @@ class ResourceLoader:
         for k, v in resource_obj.items():
             if not isinstance(k, str):
                 return None, f"expected resource keys to be of type `str`, but found key `{k}` with type `{type(k)}`"
+            if "." in k or ":" in k:
+                return None, f"key names cannot contain '.' or ':', found in key `{k}`"
             if not isinstance(v, Dict):
                 return None, f"expected value for key `{k}` to be of type `Dict` but found {type(v)}"
 
@@ -94,6 +96,8 @@ class ResourceLoader:
             for _k, _v in v.items():
                 if not isinstance(_k, str):
                     return None, f"expected resource entry key to be of type `str`, but found key `{k}.{_k}` with type `{type(_k)}`"
+                if "." in _k or ":" in _k:
+                    return None, f"key names cannot contain '.' or ':', found in key `{_k}`"
                 if not isinstance(_v, (str | int | bool | float | None)):
                     return None, f"expected resource entry values to be of type `{_resource_type}`, but found value for key `{k}.{_k}` with type `{type(_v)}`"
                 result[k][_k] = _v

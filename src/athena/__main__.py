@@ -27,7 +27,7 @@ def init(path: str):
     Initializes an athena project at PATH/athena
     """
     athena_path = file.init(path)
-    print(f'Created athena project at: `{athena_path}`')
+    click.echo(f'Created athena project at: `{athena_path}`')
 
 @athena.group()
 def create():
@@ -42,7 +42,7 @@ def create_workspace(name: str):
     NAME - name of workspace to create
     """
     workspace_path = file.create_workspace(os.getcwd(), name)
-    print(f'Created workspace at `{workspace_path}')
+    click.echo(f'Created workspace at `{workspace_path}')
 
 @create.command(name="collection")
 @click.argument('name', type=str)
@@ -57,7 +57,7 @@ def create_collection(name: str, workspace: str):
     try to use the workspace in the current working directory.
     """
     collection_path = file.create_collection(os.getcwd(), workspace if workspace != "" else None, name)
-    print(f'Created collectio at `{collection_path}`')
+    click.echo(f'Created collectio at `{collection_path}`')
 
 def resolve_module_path(path_or_key: str) -> Tuple[str, str, str, str]:
     if path_or_key.count(":") == 2:
@@ -146,7 +146,7 @@ def run(path_or_key: str, environment: str | None):
     run_modules_and(
             path_or_key,
             environment=environment,
-            module_callback=lambda key, result: print(f"{key}: {result.format_long()}"))
+            module_callback=lambda key, result: click.echo(f"{key}: {result.format_long()}"))
 
 @athena.command()
 @click.argument('path_or_key', type=str)
@@ -159,12 +159,12 @@ def status(path_or_key: str):
     """
     root, workspace, collection, module = resolve_module_path(path_or_key)
     modules = file.search_modules(root, workspace, collection, module)
-    print("modules:")
-    print("\n".join(["  " + i for i in modules.keys()]))
+    click.echo("modules:")
+    click.echo("\n".join(["  " + i for i in modules.keys()]))
     directories = file.list_directories(root)
     environments = athena_status.search_environments(root, list(directories.keys()))
-    print("environments:")
-    print("\n".join(["  " + i for i in environments]))
+    click.echo("environments:")
+    click.echo("\n".join(["  " + i for i in environments]))
 
 @athena.group()
 def export():
@@ -176,7 +176,7 @@ def export_secrets():
     root, _, _ = file.find_context(current_dir)
     directories = file.list_directories(root)
     secrets = athena_status.collect_secrets(root, list(directories.keys()))
-    print(jsonify(secrets, reversible=True))
+    click.echo(jsonify(secrets, reversible=True))
 
 @export.command(name='variables')
 def export_variables():
@@ -184,7 +184,7 @@ def export_variables():
     root, _, _ = file.find_context(current_dir)
     directories = file.list_directories(root)
     variables = athena_status.collect_variables(root, list(directories.keys()))
-    print(jsonify(variables, reversible=True))
+    click.echo(jsonify(variables, reversible=True))
 
 @athena.group(name="import")
 def athena_import():
@@ -311,7 +311,7 @@ def responses(path_or_key: str, environment: str | None):
     run_modules_and(
             path_or_key,
             environment=environment,
-            module_callback=lambda _, result: print(f"{display.responses(result)}"))
+            module_callback=lambda _, result: click.echo(f"{display.responses(result)}"))
 
 if __name__ == "__main__":
     try:
