@@ -387,8 +387,8 @@ python3 -m athena import secrets -f secrets.json
 The `responses` command will run a module key and pretty-print information about the responses of
 all the requests that were sent during the execution. 
 
-```sh
-python3 -m athena responses "*:*:**get_planets"
+```
+$ python3 -m athena responses "*:*:**get_planets"
 
 my-workspace:my-collection:api.get_planets •
 │ execution
