@@ -382,6 +382,69 @@ python3 -m athena export secrets > secrets.json
 python3 -m athena import secrets -f secrets.json
 ```
 
+**responses**
+
+The `responses` command will run a module key and pretty-print information about the responses of
+all the requests that were sent during the execution. 
+
+```sh
+python3 -m athena responses "*:*:**get_planets"
+
+my-workspace:my-collection:api.get_planets •
+│ execution
+│ │ environment: None
+│ 
+│ timings
+│ │ api/planets     ···················· 2.02ms
+│ │ planet/Venus                         ················ 1.63ms
+│ 
+│ traces
+│ │ api/planets
+│ │ │ │ GET http://localhost:5000/api/planets
+│ │ │ │ 401 UNAUTHORIZED 2.02ms
+│ │ │ 
+│ │ │ headers
+│ │ │ │ Server         | Werkzeug/3.0.1 Python/3.11.2
+│ │ │ │ Date           | Sun, 05 Nov 2023 23:13:12 GMT
+│ │ │ │ Content-Type   | application/json
+│ │ │ │ Content-Length | 39
+│ │ │ │ Connection     | close
+│ │ │ 
+│ │ │ body | application/json [json] 39B
+│ │ │ │ 1 {
+│ │ │ │ 2   "error": "Authentication failed"
+│ │ │ │ 3 }
+│ │ │ │ 
+│ │ │ 
+│ │ 
+│ │ planet/Venus
+│ │ │ │ GET http://localhost:5000/planet/Venus
+│ │ │ │ 200 OK 1.63ms
+│ │ │ 
+│ │ │ headers
+│ │ │ │ Server         | Werkzeug/3.0.1 Python/3.11.2
+│ │ │ │ Date           | Sun, 05 Nov 2023 23:13:12 GMT
+│ │ │ │ Content-Type   | text/html; charset=utf-8
+│ │ │ │ Content-Length | 160
+│ │ │ │ Connection     | close
+│ │ │ 
+│ │ │ body | text/html [html] 160B
+│ │ │ │ 1 <html>
+│ │ │ │ 2 <head>
+│ │ │ │ 3     <title>Venus</title>
+│ │ │ │ 4 </head>
+│ │ │ │ 5 <body>
+│ │ │ │ 6     <h1>Venus</h1>
+│ │ │ │ 7     <p>Description: Known for its thick atmosphere</p>
+│ │ │ │ 8 </body>
+│ │ │ │ 9 </html>
+│ │ │ │ 
+│ │ │ 
+│ │ 
+│ 
+```
+
+
 ### Imported
 
 **jsonify**

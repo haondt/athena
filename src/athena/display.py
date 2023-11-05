@@ -1,26 +1,172 @@
 from .run import ExecutionTrace
-from .format import short_format_error
+from .format import short_format_error, color, colors, indent, rtruncate
+from . import humanize
+import random
+import re
+import json
+import xml.etree.ElementTree as xmlET
+from pygments import highlight
+from pygments.formatters import TerminalFormatter
 
+_color_list = [
+    colors.red,
+    colors.green,
+    colors.yellow,
+    colors.blue,
+    colors.magenta,
+    colors.cyan,
+    colors.white,
+    colors.brightred,
+    colors.brightgreen,
+    colors.brightyellow,
+    colors.brightblue,
+    colors.brightmagenta,
+    colors.brightcyan,
+    colors.brightwhite,
+]
+
+def _is_json(content_type: str) -> bool:
+    json_re = re.compile(r"^application/(?:[\w.+-]+?\+)?json")
+    return json_re.match(content_type) is not None
+
+def _try_prettify_json(text: str) -> str | None:
+    try:
+        text = json.dumps(json.loads(text), indent=2)
+    except:
+        pass
+    try:
+        from pygments.lexers import jsonnet
+        lexer = jsonnet.JsonnetLexer()
+        return highlight(text, lexer, formatter)
+    except:
+        return None
+
+def _is_html(content_type: str) -> bool:
+    return content_type == "text/html"
+
+def _try_prettify_html(text: str) -> str | None:
+    try:
+        root = xmlET.fromstring(text)
+        text = xmlET.tostring(root, encoding='unicode', method='xml')
+    except:
+        pass
+    try:
+        from pygments.lexers import html
+        lexer = html.HtmlLexer()
+        return highlight(text, lexer, formatter)
+    except:
+        return None
+
+def _is_xml(content_type: str) -> bool:
+    return content_type == "text/xml"
+
+def _try_prettify_xml(text: str) -> str | None:
+    try:
+        root = xmlET.fromstring(text)
+        text = xmlET.tostring(root, encoding='unicode', method='xml')
+    except:
+        pass
+    try:
+        from pygments.lexers import html
+        lexer = html.XmlLexer()
+        return highlight(text, lexer, formatter)
+    except:
+        return None
+
+formatter = TerminalFormatter()
 
 def responses(trace: ExecutionTrace):
-    output = ""
-    output_max_width = 60
+    output = []
+    #min_width = 40
+    #max_width = 165
+    output_width = 60
 
-    output += f"environment: {trace.environment}\n"
+    def main_header() -> str:
+        section_output = ""
+        success_color = colors.green if trace.success else colors.red
+        section_output += f"{color(trace.module_key, colors.underline, colors.bold)} {color('•', success_color)}"
+        return section_output
+    def sub_header() -> str:
+        section_output = ""
+        section_output += f"environment: {trace.environment}"
+        if not trace.success:
+            if trace.error is not None:
+                section_output += f"\n{color('Warning:', colors.yellow)} execution failed to complete successfully\n{color(short_format_error(trace.error), colors.brightred)}"
+            else:
+                section_output += f"\n{color('Warning:', colors.yellow)} execution failed to complete successfully"
+        elif trace.error is not None:
+            section_output += f"\n{color('Warning:', colors.yellow)} execution completed with errors\n{color(short_format_error(trace.error), colors.brightyellow)}"
+        return section_output
+    def duration_view():
+        assert len(trace.athena_traces) > 0
+        return f"{_create_duration_view(trace, output_width)}"
+    def trace_digests():
+        assert len(trace.athena_traces) > 0
+        digests = []
+        for athena_trace in trace.athena_traces:
+            entry = []
+            meta_info =  "\n".join([
+                f"{color(athena_trace.request.method, colors.bold)} {athena_trace.request.url}",
+                f"{color(athena_trace.response.status_code, colors.brightgreen)} {color(athena_trace.response.reason, colors.green)} {humanize.delta(athena_trace.end-athena_trace.start)}"
+                ])
+            entry.append(("", [meta_info]))
 
-    if not trace.success:
-        if trace.error is not None:
-            output += f"Warning: execution failed to complete successfully, with error {short_format_error(trace.error)}\n"
-        else:
-            output += "Warning: execution failed to complete successfully\n"
-    elif trace.error is not None:
-        output += f"Warning: execution completed with, with error {short_format_error(trace.error)}\n"
+            max_header_key_len = min(max([len(i) for i in athena_trace.response.headers.keys()]), output_width // 2 - 3)
+            max_header_value_len =  output_width - max_header_key_len
+            header_info = []
+            for key, value in athena_trace.response.headers.items():
+                if len(key) > max_header_key_len:
+                    key = rtruncate(key, max_header_key_len)
+                if len(key) < max_header_key_len:
+                    key = key.ljust(max_header_key_len)
+                if len(value) > max_header_value_len:
+                    value = rtruncate(value, max_header_value_len)
+                header_info.append(f"{color(key, colors.brightwhite)} | {value}")
+            header_info = "\n".join(header_info)
+            entry.append((color("headers", colors.underline), [header_info]))
 
-    output += f"{trace.module_key}\n"
+            body_info = []
+            line_numbers = True
+            body_text = athena_trace.response.text
+            render_method = "text"
+            if athena_trace.response.content_type is not None:
+                for check, func, rm in [
+                        (_is_json, _try_prettify_json, "json", ),
+                        (_is_html, _try_prettify_html, "html"),
+                        (_is_xml, _try_prettify_xml, "xml"),
+                        ]:
+                    if check(athena_trace.response.content_type):
+                        result = func(body_text)
+                        if result is not None:
+                            body_text = result
+                            render_method = rm
+                            break
+            if line_numbers:
+                numbered_text = []
+                for i, line in enumerate(body_text.split("\n")[:-1]):
+                    numbered_text.append(color(f"{i+1}", colors.brightwhite) + " " + line)
+                body_text = "\n".join(numbered_text) + "\n"
+                
+            body_metadata = f"{athena_trace.response.content_type} [{render_method}] {humanize.bytes(len(athena_trace.response.text))}"
+            body_info.append(f"{body_text}")
+
+            body_info = "\n".join(body_info)
+            entry.append((f"{color('body', colors.underline)} | {body_metadata}", [body_info]))
+
+            digests.append((athena_trace.name, entry))
+        return digests
+
+    main_header_output = []
+    output.append((main_header(), main_header_output))
+    main_header_output.append((color("execution", colors.underline), [sub_header()]))
+
     if len(trace.athena_traces) > 0:
-        output += f"{_create_duration_view(trace, output_max_width)}\n"
-
-    return output
+        main_header_output.append((color("timings", colors.underline), [duration_view()]))
+        digests_output = []
+        main_header_output.append((color("traces", colors.underline), digests_output))
+        for name, value in trace_digests():
+            digests_output.append((color(name, colors.underline, colors.bold, colors.blue), value))
+    return _compute_indented_output(output)
 
 def _create_duration_view(trace: ExecutionTrace, output_max_width: int):
     time_data = []
@@ -44,16 +190,8 @@ def _create_duration_view(trace: ExecutionTrace, output_max_width: int):
 
     seperator = "    "
     duration = end-start
-    max_duration = max([i[2]-i[1] for i in time_data])
-    unit = ""
-    format = lambda x: x
-    if max_duration > 1:
-        unit = "s"
-        format = lambda t: "{:.3g}".format(t, 3)
-    else:
-        unit = "ms"
-        format = lambda t: "{:.3g}".format(t*1000, 3)
-    max_line_len = output_max_width - len(seperator) - name_len - len(unit) - 4
+    expected_duration_len = 6
+    max_line_len = output_max_width - len(seperator) - name_len - expected_duration_len - 2
     if max_line_len < 1:
         return ""
     
@@ -63,6 +201,22 @@ def _create_duration_view(trace: ExecutionTrace, output_max_width: int):
         start_position = int(round(((trace_start-start) / duration)*max_line_len))
         end_position = int(round(((trace_end-start) / duration)*max_line_len))
         line = line[:start_position] + "·"*(end_position - start_position + 1) + " "
-        output.append(f"{name}{seperator}{line}{format(trace_end-trace_start)}{unit}")
+        line_color = random.choice(_color_list)
+        line = color(line, line_color)
+        output.append(f"{name}{seperator}{line}{humanize.delta(trace_end-trace_start)}")
 
     return "\n".join(output)
+
+def _compute_indented_output(value) -> str:
+    stringified_values = []
+    for item in value:
+        if isinstance(item, tuple):
+            stringified_value = ""
+            if len(item[0]) > 0:
+                stringified_value += f"{str(item[0])}\n"
+            stringified_value += indent(_compute_indented_output(item[1]), 1, '│ ', indent_empty_lines=True)
+            stringified_value += "\n"
+            stringified_values.append(stringified_value)
+        else:
+            stringified_values.append(str(item))
+    return "\n".join(stringified_values)

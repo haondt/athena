@@ -61,6 +61,9 @@ class ResponseTrace:
         self.url = str(response.url)
         self.reason = response.reason
         self.content_type: str | None = self.headers.get(aiohttp.hdrs.CONTENT_TYPE, None)
+        if self.content_type is not None:
+            self.content_type = self.content_type.split(";")[0]
+
         if isinstance(response, requests.Response):
             self.status_code = response.status_code
         else:

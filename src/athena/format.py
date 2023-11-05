@@ -109,3 +109,13 @@ def _pretty_format_frame(frame):
     s = f"File \"{color(frame.filename, colors.italic)}\", line {frame.lineno}, in {color(frame.name, colors.bold)}"
     s += f"\n{head + colored_body + tail}"
     return s
+
+# some long text -> some lon...
+def rtruncate(text: str, max_length: int, trunc_str: str="...") -> str:
+    if len(trunc_str) >  max_length:
+        raise ValueError(f"trunc_str `{trunc_str}` longer than max_length {max_length}")
+
+    if len(text) <= max_length:
+        return text
+
+    return text[:max_length-len(trunc_str)] + trunc_str

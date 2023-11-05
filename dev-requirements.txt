@@ -3,3 +3,4 @@ click
 pyyaml
 requests
 aiohttp
+pygments
