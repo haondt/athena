@@ -369,6 +369,19 @@ python3 -m athena status
 python3 -m athena status ".:.:**"
 ```
 
+**import/export**
+
+You can import and export secrets and variables with the `import` and `export` commands.
+`export` will print to stdout and `import` will either take the values as an argument or take
+the path to a file as an option. These commands will import/export all values for the entire
+athena project.
+
+```sh
+python3 -m athena export secrets > secrets.json
+
+python3 -m athena import secrets -f secrets.json
+```
+
 ### Imported
 
 **jsonify**

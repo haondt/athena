@@ -1,6 +1,6 @@
 import aiohttp
 
-from .resource import ResourceLoader, try_extract_value_from_resource, _resource_value_type
+from .resource import ResourceLoader, try_extract_value_from_resource
 from .exceptions import AthenaException
 from typing import Any, Callable, List, Protocol, Dict
 from .trace import AthenaTrace, ResponseTrace, RequestTrace
@@ -119,33 +119,33 @@ class Athena:
         self.cache = Cache(cache_values)
         self.context = context
 
-    def variable(self, name: str) -> _resource_value_type:
+    def variable(self, name: str) -> str:
         root, workspace, collection = self.context.root_path, self.context.workspace, self.context.collection
 
         collection_variables = self.__resource_loader.load_collection_variables(root, workspace, collection)
         success, value = try_extract_value_from_resource(collection_variables, name, self.context._environment)
         if success:
-            return value
+            return str(value)
 
         workspace_variables = self.__resource_loader.load_workspace_variables(root, workspace)
         success, value = try_extract_value_from_resource(workspace_variables, name, self.context._environment)
         if success:
-            return value
+            return str(value)
 
         raise AthenaException(f"unable to find variable \"{name}\" with environment \"{self.context.environment}\". ensure variables have at least a default environment.")
 
-    def secret(self, name: str) -> _resource_value_type:
+    def secret(self, name: str) -> str:
         root, workspace, collection = self.context.root_path, self.context.workspace, self.context.collection
 
         collection_secrets = self.__resource_loader.load_collection_secrets(root, workspace, collection)
         success, value = try_extract_value_from_resource(collection_secrets, name, self.context._environment)
         if success:
-            return value
+            return str(value)
 
         workspace_secrets = self.__resource_loader.load_workspace_secrets(root, workspace)
         success, value = try_extract_value_from_resource(workspace_secrets, name, self.context._environment)
         if success:
-            return value
+            return str(value)
 
         raise AthenaException(f"unable to find secret \"{name}\" with environment \"{self.context.environment}\". ensure secrets have at least a default environment")
 

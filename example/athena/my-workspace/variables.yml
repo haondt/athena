@@ -1,1 +1,3 @@
 variables:
+  foo:
+    __default__: "bar"

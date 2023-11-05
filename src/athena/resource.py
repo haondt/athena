@@ -25,7 +25,8 @@ def try_extract_value_from_resource(resource: _resource_type, name, environment:
     return False, None
 
 class ResourceLoader:
-    def __init__(self):
+    def __init__(self, cache: bool=True):
+        self._cache = cache
         self.loaded_resources: Dict[str, _resource_type] = {}
     def load_workspace_secrets(self, root: str, workspace: str) -> _resource_type:
         file_path = _build_file_name("secrets.yml", root, workspace)
@@ -50,8 +51,11 @@ class ResourceLoader:
         if not os.path.exists(file_path): 
             with open(file_path, "w") as f:
                 f.write(f"{yaml_root_key}:\n")
-            self.loaded_resources[file_path] = {}
-            return self.loaded_resources[file_path]
+            if self._cache:
+                self.loaded_resources[file_path] = {}
+                return self.loaded_resources[file_path]
+            else:
+                return {}
 
         if not os.path.isfile(file_path):
             raise AthenaException(f"unable to load {file_path}: is a directory")

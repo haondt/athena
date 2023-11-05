@@ -11,6 +11,7 @@ from . import status as athena_status
 from .exceptions import AthenaException
 from .format import colors, color
 from . import display
+from .json import jsonify, dejsonify
 
 athena = click.Group()
 
@@ -160,7 +161,8 @@ def status(path_or_key: str):
     modules = file.search_modules(root, workspace, collection, module)
     print("modules:")
     print("\n".join(["  " + i for i in modules.keys()]))
-    environments = athena_status.search_environments(root, modules.keys())
+    directories = file.list_directories(root)
+    environments = athena_status.search_environments(root, list(directories.keys()))
     print("environments:")
     print("\n".join(["  " + i for i in environments]))
 
@@ -170,8 +172,131 @@ def export():
 
 @export.command(name='secrets')
 def export_secrets():
-    print("TODO!")
+    current_dir = os.path.normpath(os.getcwd())
+    root, _, _ = file.find_context(current_dir)
+    directories = file.list_directories(root)
+    secrets = athena_status.collect_secrets(root, list(directories.keys()))
+    print(jsonify(secrets, reversible=True))
 
+@export.command(name='variables')
+def export_variables():
+    current_dir = os.path.normpath(os.getcwd())
+    root, _, _ = file.find_context(current_dir)
+    directories = file.list_directories(root)
+    variables = athena_status.collect_variables(root, list(directories.keys()))
+    print(jsonify(variables, reversible=True))
+
+@athena.group(name="import")
+def athena_import():
+    pass
+
+@athena_import.command(name='secrets')
+@click.argument('secret_data', type=str, default="")
+@click.option('secret_path', '-f', '--file', type=click.Path(
+    exists=True,
+    dir_okay=False,
+    file_okay=True,
+    readable=True,
+    ), help="secret data file to import")
+def athena_import_secrets(secret_data: str, secret_path: str | None):
+    """
+    Import secrets for the athena project. Will prompt for confirmation.
+
+    SECRET_DATA - secret data to import. Alternatively, a file can be supplied.
+    """
+    if secret_path is None:
+        if secret_data is None:
+            raise AthenaException("no data provided")
+    else:
+        with open(secret_path, "r") as f:
+            secret_data = f.read()
+
+    secrets = dejsonify(secret_data, expected_type=athena_status.AggregatedResource)
+    current_dir = os.path.normpath(os.getcwd())
+    root = file.find_root(current_dir)
+
+    dry_run = athena_status.dry_run_apply_secrets(root, secrets)
+    warnings = []
+    if len(dry_run.new_workspaces) > 0:
+        warning = "Importing will create the following new workspaces:\n"
+        warning += "\n".join([f"    {i}" for i in dry_run.new_workspaces])
+        warnings.append(warning)
+    if len(dry_run.new_collections) > 0:
+        warning = "Importing will create the following new collections:\n"
+        warning += "\n".join([f"    {i}" for i in dry_run.new_collections])
+        warnings.append(warning)
+    if len(dry_run.overwritten_values) > 0:
+        warning = "Importing will overwrite the following values:\n"
+        warning += "\n".join([f"    {i}" for i in dry_run.overwritten_values])
+        warnings.append(warning)
+    if len(dry_run.new_values) > 0:
+        warning = "Importing will create the following values:\n"
+        warning += "\n".join([f"    {i}" for i in dry_run.new_values])
+        warnings.append(warning)
+    if len(warnings) == 0:
+        click.echo("input yielded no changes to current project")
+        return
+    click.echo("Warning: \n" + "\n".join(warnings))
+    response = input(f"Continue? (y/N): ")
+    if response.lower() not in ["y", "yes"]:
+        click.echo("secret import cancelled.")
+        return
+    athena_status.apply_secrets(root, secrets)
+    click.echo("Secrets imported.")
+
+@athena_import.command(name='variables')
+@click.argument('variable_data', type=str, default="")
+@click.option('variable_path', '-f', '--file', type=click.Path(
+    exists=True,
+    dir_okay=False,
+    file_okay=True,
+    readable=True,
+    ), help="variable data file to import")
+def athena_import_variables(variable_data: str, variable_path: str | None):
+    """
+    Import variables for the athena project. Will prompt for confirmation.
+
+    VARIABLE_DATA - variable data to import. Alternatively, a file can be supplied.
+    """
+    if variable_path is None:
+        if variable_data is None:
+            raise AthenaException("no data provided")
+    else:
+        with open(variable_path, "r") as f:
+            variable_data = f.read()
+
+    variables = dejsonify(variable_data, expected_type=athena_status.AggregatedResource)
+    current_dir = os.path.normpath(os.getcwd())
+    root = file.find_root(current_dir)
+
+    dry_run = athena_status.dry_run_apply_variables(root, variables)
+    warnings = []
+    if len(dry_run.new_workspaces) > 0:
+        warning = "Importing will create the following new workspaces:\n"
+        warning += "\n".join([f"    {i}" for i in dry_run.new_workspaces])
+        warnings.append(warning)
+    if len(dry_run.new_collections) > 0:
+        warning = "Importing will create the following new collections:\n"
+        warning += "\n".join([f"    {i}" for i in dry_run.new_collections])
+        warnings.append(warning)
+    if len(dry_run.overwritten_values) > 0:
+        warning = "Importing will overwrite the following values:\n"
+        warning += "\n".join([f"    {i}" for i in dry_run.overwritten_values])
+        warnings.append(warning)
+    if len(dry_run.new_values) > 0:
+        warning = "Importing will create the following values:\n"
+        warning += "\n".join([f"    {i}" for i in dry_run.new_values])
+        warnings.append(warning)
+    if len(warnings) == 0:
+        click.echo("input yielded no changes to current project")
+        return
+    click.echo("Warning: \n" + "\n".join(warnings))
+    response = input(f"Continue? (y/N): ")
+    if response.lower() not in ["y", "yes"]:
+        click.echo("variable import cancelled.")
+        return
+    athena_status.apply_variables(root, variables)
+    click.echo("Variables imported.")
 
 @athena.command()
 @click.argument('path_or_key', type=str)

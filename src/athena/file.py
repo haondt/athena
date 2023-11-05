@@ -125,7 +125,7 @@ def find_context(current_dir: str):
             collection = paths[2]
     return root, workspace, collection
 
-def list_modules(root: str):
+def list_modules(root: str) -> dict[str, str]:
     module_list = {}
     for entry in os.listdir(root):
         workspace_path = os.path.join(root, entry)
@@ -137,12 +137,26 @@ def list_modules(root: str):
                     if os.path.isdir(collection_path):
                         modules_path = os.path.join(collection_path, "run")
                         if os.path.isdir(modules_path):
-                            # --
                             modules = __search_for_python_files(modules_path)
                             for k in modules:
                                 module_key = f"{entry}:{collection}:{k}"
                                 module_list[module_key] = modules[k]
     return module_list
+
+def list_directories(root: str) -> dict[str, str]:
+    directory_list = {}
+    for entry in os.listdir(root):
+        workspace_path = os.path.join(root, entry)
+        if os.path.isdir(workspace_path):
+            collections_path = os.path.join(workspace_path, "collections")
+            if os.path.isdir(collections_path):
+                directory_list[entry] = workspace_path
+                for collection in os.listdir(collections_path):
+                    collection_path = os.path.join(collections_path, collection)
+                    if os.path.isdir(collection_path):
+                        directory_list[f"{entry}:{collection}"] = collection_path
+    return directory_list
+
 
 def __search_for_python_files(root: str, current_name=""):
     contents = {}
@@ -202,4 +216,7 @@ def search_modules(root: str, workspace: str, collection: str, module: str):
 
 def import_yaml(file) -> object:
      return yaml.load(file, Loader=yaml.FullLoader)
+
+def export_yaml(obj) -> str:
+    return yaml.dump(obj, default_flow_style=False)
 

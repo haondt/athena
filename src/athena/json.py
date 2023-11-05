@@ -1,5 +1,7 @@
 from json import JSONEncoder, dumps, loads, JSONDecoder
-from typing import Any
+from typing import Any, Type
+
+from athena.exceptions import AthenaException
 
 
 _serializeable_classes = set()
@@ -51,9 +53,19 @@ class AthenaJSONDecoder(JSONDecoder):
         return dct
             
 def jsonify(item: Any, reversible=False):
-    if reversible:
-        return dumps(item, cls=AthenaReversibleJSONEncoder)
-    return dumps(item, cls=AthenaJSONEncoder)
+    try:
+        if reversible:
+            return dumps(item, cls=AthenaReversibleJSONEncoder)
+        return dumps(item, cls=AthenaJSONEncoder)
+    except Exception as e:
+        raise AthenaException(f"Error while dumping json: {e}")
 
-def dejsonify(json_str: str):
-    return loads(json_str, cls=AthenaJSONDecoder)
+def dejsonify(json_str: str, expected_type: Type | None=None):
+    try:
+        loaded = loads(json_str, cls=AthenaJSONDecoder)
+        if expected_type is not None:
+            if not isinstance(loaded, expected_type):
+                raise AthenaException(f"Error while loading json: expected deserialized object to be of type `{expected_type.__name__}` but found `{type(loaded).__name__}`")
+        return loaded
+    except Exception as e:
+        raise AthenaException(f"Error while loading json: {e}")
