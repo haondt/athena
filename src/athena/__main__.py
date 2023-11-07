@@ -1,7 +1,7 @@
 import asyncio
 import sys, os
 import click
-from typing import Tuple, Callable, Dict
+from typing import Callable
 from click import version_option
 
 from .run import ExecutionTrace
@@ -63,7 +63,7 @@ def create_collection(name: str, workspace: str):
     collection_path = file.create_collection(os.getcwd(), workspace if workspace != "" else None, name)
     click.echo(f'Created collectio at `{collection_path}`')
 
-def resolve_module_path(path_or_key: str) -> Tuple[str, str, str, str]:
+def resolve_module_path(path_or_key: str) -> tuple[str, str, str, str]:
     if path_or_key.count(":") == 2:
         current_dir = os.path.normpath(os.getcwd())
         root, workspace, collection = file.find_context(current_dir)
@@ -124,7 +124,7 @@ def run_modules_and(
         path_or_key: str,
         environment: str | None=None,
         module_callback: Callable[[str, ExecutionTrace], None] | None=None,
-        final_callback: Callable[[Dict[str, ExecutionTrace]], None] | None=None
+        final_callback: Callable[[dict[str, ExecutionTrace]], None] | None=None
         ):
     root, workspace, collection, module = resolve_module_path(path_or_key)
     modules = file.search_modules(root, workspace, collection, module)

@@ -1,12 +1,11 @@
 import os
 from typing import Tuple
-from typing_extensions import Dict
 from . import file
 from .exceptions import AthenaException
 
 DEFAULT_ENVIRONMENT_KEY = "__default__"
 _resource_value_type = str | int | float | bool | None
-_resource_type = Dict[str, Dict[str, _resource_value_type]]
+_resource_type = dict[str, dict[str, _resource_value_type]]
 
 def _build_file_name(file_name, root, workspace, collection=None):
     dir_path = os.path.join(root, workspace)
