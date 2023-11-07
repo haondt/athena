@@ -23,16 +23,20 @@ jobs:
           path: .venv
           key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
       - name: Install dependencies
+        working-directory: ./src
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
       - name: Build project
+        working-directory: ./src
         run: poetry build --format='wheel'
       - name: Configure PyPI token
         run: poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
       - name: Set version
+        working-directory: ./src
         run: |
           release_tag="${{ github.event.release.tag_name }}"
           version="${release_tag#v}"
           poetry version $version
       - name: Publish project
+        working-directory: ./src
         run: poetry publish
