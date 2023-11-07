@@ -2,6 +2,7 @@ import asyncio
 import sys, os
 import click
 from typing import Tuple, Callable, Dict
+from click import version_option
 
 from .run import ExecutionTrace
 
@@ -13,7 +14,10 @@ from .format import colors, color
 from . import display
 from .json import jsonify, dejsonify
 
-athena = click.Group()
+@click.group()
+@click.version_option()
+def athena():
+    pass
 
 @athena.command()
 @click.argument('path', type=click.Path(
@@ -313,9 +317,12 @@ def responses(path_or_key: str, environment: str | None):
             environment=environment,
             module_callback=lambda _, result: click.echo(f"{display.responses(result)}"))
 
-if __name__ == "__main__":
+def main():
     try:
         athena()
     except AthenaException as e:
         sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
         sys.exit(1)
+
+if __name__ == "__main__":
+    main()

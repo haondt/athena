@@ -2,7 +2,7 @@
 
 athena is a file-based rest api client.
 
-# Purpose
+# Motivation
 
 I can store my athena workspaces inside the repo of the project they test. Something I was originally doing with ThunderClient before they changed their payment
 model, but even better since I can leverage some python scripting and automation inside my test cases. 
