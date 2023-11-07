@@ -59,59 +59,79 @@ class AthenaRequest:
             f"{self.base_url}{self.url}",
             kwargs)
 
-class AuthBuilder:
-    def __init__(self):
-        self.add_auth = lambda rb: rb
-    def bearer(self, token: str) -> AuthBuilder:
+class AuthStepFactory:
+    def __init__(self, 
+        add_build_step: Callable[[Callable[[AthenaRequest], AthenaRequest]], None],
+        parent: RequestBuilder):
+        self._add_build_step = add_build_step
+        self._parent = parent
+    def bearer(self, token: str) -> RequestBuilder:
         def set_bearer(rq: AthenaRequest):
             rq.headers["Authorization"] = f"Bearer {token}" 
             return rq
-        self.add_auth = set_bearer
-        return self
-    def basic(self, username: str, password: str) -> AuthBuilder:
+        self._add_build_step(set_bearer)
+        return self._parent
+    def basic(self, username: str, password: str) -> RequestBuilder:
         def set_auth(rq: AthenaRequest):
             rq.auth = (username, password)
             return rq
-        self.add_auth = set_auth
-        return self
-    def compile(self) -> Callable[[AthenaRequest], AthenaRequest]:
-        return self.add_auth
+        self._add_build_step(set_auth)
+        return self._parent
 
-class HookBuilder:
-    def __init__(self):
-        self.__before_hooks: list[Callable[[AthenaRequest], None]] = []
-        self.__after_hooks: list[Callable[[ResponseTrace], None]] = []
-    def before(self, hook: Callable[[AthenaRequest], None]) -> HookBuilder:
-        self.__before_hooks.append(hook)
-        return self
-    def after(self, hook: Callable[[ResponseTrace], None]) -> HookBuilder:
-        self.__after_hooks.append(hook)
-        return self
-    def compile(self) -> Callable[[AthenaRequest], AthenaRequest]:
-        def add_hooks(rq: AthenaRequest):
-            rq._before_hooks += self.__before_hooks
-            rq._after_hooks += self.__after_hooks
+class HookStepFactory:
+    def __init__(self,
+        add_build_step: Callable[[Callable[[AthenaRequest], AthenaRequest]], None],
+        parent: RequestBuilder):
+        self._add_build_step = add_build_step
+        self._parent = parent
+    def before(self, hook: Callable[[AthenaRequest], None]) -> RequestBuilder:
+        def add_hook(rq: AthenaRequest):
+            rq._before_hooks.append(hook)
             return rq
-        return add_hooks
+        self._add_build_step(add_hook)
+        return self._parent
+    def after(self, hook: Callable[[ResponseTrace], None]) -> RequestBuilder:
+        def add_hook(rq: AthenaRequest):
+            rq._after_hooks.append(hook)
+            return rq
+        self._add_build_step(add_hook)
+        return self._parent
+
+class BodyStepFactory:
+    def __init__(self,
+        add_build_step: Callable[[Callable[[AthenaRequest], AthenaRequest]], None],
+        parent: RequestBuilder):
+        self._add_build_step = add_build_step
+        self._parent = parent
+    def json(self, payload) -> RequestBuilder:
+        def add_json(rq: AthenaRequest):
+            rq.json = payload
+            return rq
+        self._add_build_step(add_json)
+        return self._parent
+
+    def form(self, payload: dict[str, str | int | float | bool]) -> RequestBuilder:
+        def add_data(rq: AthenaRequest):
+            rq.data = payload
+            return rq
+        self._add_build_step(add_data)
+        return self._parent
+
 
 class RequestBuilder:
     def __init__(self):
-        self.build_steps = []
+        self._build_steps: list[Callable[[AthenaRequest], AthenaRequest]] = []
+        self.auth: AuthStepFactory = AuthStepFactory(lambda rq: self._build_steps.append(rq), self)
+        self.hook: HookStepFactory = HookStepFactory(lambda rq: self._build_steps.append(rq), self)
+        self.body: BodyStepFactory = BodyStepFactory(lambda rq: self._build_steps.append(rq), self)
 
     def base_url(self, base_url) -> RequestBuilder:
         def set_base_url(rq: AthenaRequest):
             rq.base_url = base_url
             return rq
-        self.build_steps.append(set_base_url)
+        self._build_steps.append(set_base_url)
         return self
 
-    def auth(self, build_auth: Callable[[AuthBuilder], AuthBuilder]) -> RequestBuilder:
-        self.build_steps.append(build_auth(AuthBuilder()).compile())
-        return self
-
-    def hook(self, build_hook: Callable[[HookBuilder], HookBuilder]) -> RequestBuilder:
-        self.build_steps.append(build_hook(HookBuilder()).compile())
-        return self
 
     def header(self, header_key, header_value) -> RequestBuilder:
         def add_header(rq: AthenaRequest):
@@ -119,32 +139,18 @@ class RequestBuilder:
                 raise AthenaException(f"key \"{header_key}\" already present in request headers")
             rq.headers[header_key] = header_value
             return rq
-        self.build_steps.append(add_header)
-        return self
-
-    def json(self, payload) -> RequestBuilder:
-        def add_json(rq: AthenaRequest):
-            rq.json = payload
-            return rq
-        self.build_steps.append(add_json)
-        return self
-
-    def form(self, payload: dict[str, str | int | float | bool]) -> RequestBuilder:
-        def add_data(rq: AthenaRequest):
-            rq.data = payload
-            return rq
-        self.build_steps.append(add_data)
+        self._build_steps.append(add_header)
         return self
 
     def compile(self) -> Callable[[AthenaRequest], AthenaRequest]:
         def apply(request: AthenaRequest):
-            for step in self.build_steps:
+            for step in self._build_steps:
                 request = step(request)
             return request
         return apply
 
     def apply(self, request: AthenaRequest) -> AthenaRequest:
-        for step in self.build_steps:
+        for step in self._build_steps:
             request = step(request)
         return request
 

@@ -66,8 +66,7 @@ def run(athena: Athena):
     client = athena.client(lambda builder: builder
         .base_url("http://haondt.com/api/")
         .header("origin", "athena")
-        # the authentication can also be configured with a builder
-        .auth(lambda auth_builder: auth_builder.bearer("some_secret_key")))
+        .auth.bearer("some_secret_key"))
 
 ```
 
@@ -77,7 +76,7 @@ The client can be used to send api requests. The requets themselves can also be 
 def run(athena: Athena):
     ...
     response = client.put("planets/saturn", lambda builder: builder
-        .json({
+        .body.json({
             "diameter": "120 thousand km",
             "density": "687 kg/m^3",
             "distance_from_sun": "1.35 billion km"
