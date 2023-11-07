@@ -1,5 +1,8 @@
 # athena
 
+[![PyPI - Version](https://img.shields.io/pypi/v/haondt_athena?label=PyPI)](https://pypi.org/project/haondt-athena/)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/haondt/athena)](https://github.com/haondt/athena/releases/latest)
+
 athena is a file-based rest api client.
 
 # Motivation
@@ -9,13 +12,30 @@ model, but even better since I can leverage some python scripting and automation
 It's also much more lightweight than something like Postman. Since the workbook is just a collection of plaintext files, you can navigate an athena project with
 any text editor.
 
+# Installation
+
+athena is available on PyPI.
+
+```sh
+python3 -m pip install haondt_athena
+```
+
 # Usage
 
+athena can be run as a module, or with the included binary.
+
+```sh
+python3 -m athena --help
+
+athena --help
+```
+
 ## Setup
+
 Start by running the init in your project directory.
 
 ```sh
-python3 -m athena init .
+athena init .
 ```
 
 This will create an `athena` directory.
@@ -31,7 +51,7 @@ Enter this directory, and create a workspace
 
 ```sh
 cd athena
-python3 -m athena create workspace my-workspace
+athena create workspace my-workspace
 ```
 
 This will create a directory for the workspace and set up some environment files.
@@ -52,7 +72,7 @@ This will create a directory for the workspace and set up some environment files
 Lastly, create a new collection inside the workspace
 
 ```sh
-python3 -m athena create collection my-collection -w my-workspace
+athena create collection my-collection -w my-workspace
 ```
 
 This will add a new collection to the collections directory.
@@ -153,7 +173,7 @@ it can find inside that directory.
 
 ```sh
 # run all the modules inside the api directory
-python3 -m athena run /path/to/athena/my-workspace/collections/my-collection/run/api
+athena run /path/to/athena/my-workspace/collections/my-collection/run/api
 ```
 
 ### Module keys
@@ -163,7 +183,7 @@ This key will be computed relative to the current working directory, and allows 
 
 ```sh
 # run all modules in "my-workspace" named "hello.py"
-python3 -m athena run "my-workspace:*:hello"
+athena run "my-workspace:*:hello"
 ```
 
 For any module in a collection `run` folder, the directory path relative to the `run` folder will make up the module name. 
@@ -190,25 +210,25 @@ A single asterisk (`*`) will use all directories.
 
 ```sh
 # run all modules in "my-workspace" named "hello.py"
-python3 -m athena run "my-workspace:*:hello"
+athena run "my-workspace:*:hello"
 ```
 
 For the module name, asterisks can be used to denote "any module/directory", and double asterisks (`**`) can be used to denote any subdirectory.
 
 ```sh
 # runs all files
-python3 -m athena run "*:*:**"
+athena run "*:*:**"
 
 # runs red.py and green.py
-python3 -m athena run "*:*:*"
+athena run "*:*:*"
 
 # runs only blue.py
-python3 -m athena run "*:*:*.*"
-python3 -m athena run "*:*:toast.*"
-python3 -m athena run "*:*:**blue"
+athena run "*:*:*.*"
+athena run "*:*:toast.*"
+athena run "*:*:**blue"
 
 # run all modules in the collection of the current directory
-python3 -m athena run ".:.:**"
+athena run ".:.:**"
 ```
 
 Internally, asterisks are compiled into the regular expression `[^.]+` and double asterisks are compiled into `.+`.
@@ -254,14 +274,14 @@ By default, athena will use the `__default__` environment, but you can specify o
 
 
 ```sh
-python3 -m athena run "my-workspace:*:hello.py" --environment staging
+athena run "my-workspace:*:hello.py" --environment staging
 ```
 
 You can see which environments are referenced by 1 or more variables with the `status` command,
 which takes a module mask argument as well.
 
 ```sh
-python3 -m athena status environments "my-workspace:*:hello.py"
+athena status environments "my-workspace:*:hello.py"
 ```
 
 ## Cache
@@ -363,10 +383,10 @@ You can check the available modules and environments with the `status` command
 
 ```sh
 # check for all modules and environments
-python3 -m athena status
+athena status
 
 # filter to current collection
-python3 -m athena status ".:.:**"
+athena status ".:.:**"
 ```
 
 **import/export**
@@ -377,9 +397,9 @@ the path to a file as an option. These commands will import/export all values fo
 athena project.
 
 ```sh
-python3 -m athena export secrets > secrets.json
+athena export secrets > secrets.json
 
-python3 -m athena import secrets -f secrets.json
+athena import secrets -f secrets.json
 ```
 
 **responses**
@@ -388,7 +408,7 @@ The `responses` command will run a module key and pretty-print information about
 all the requests that were sent during the execution. 
 
 ```
-$ python3 -m athena responses "*:*:**get_planets"
+$ athena responses "*:*:**get_planets"
 
 my-workspace:my-collection:api.get_planets •
 │ execution
@@ -520,7 +540,7 @@ def run(athena: Athena):
 ```
 
 ```sh
-$ python3 -m athena run "*:*:my_module"
+$ athena run "*:*:my_module"
 my-workspace:my-collection:my_module: failed
     │ File "/home/haondt/projects/my-project/athena/my-workspace/collections/my-collection/run/my_module.py", line 8, in run
     │     athert(response.status_code).equals(200)

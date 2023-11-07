@@ -26,7 +26,7 @@ def try_extract_value_from_resource(resource: _resource_type, name, environment:
 class ResourceLoader:
     def __init__(self, cache: bool=True):
         self._cache = cache
-        self.loaded_resources: Dict[str, _resource_type] = {}
+        self.loaded_resources: dict[str, _resource_type] = {}
     def load_workspace_secrets(self, root: str, workspace: str) -> _resource_type:
         file_path = _build_file_name("secrets.yml", root, workspace)
         return self.__load_or_create_file("secrets", file_path)
@@ -71,7 +71,7 @@ class ResourceLoader:
     def __load_resource_file(self, root_key: str, resource_obj: object) -> tuple[_resource_type | None, str]:
         if resource_obj is None:
             return {}, "" 
-        if not isinstance(resource_obj, Dict):
+        if not isinstance(resource_obj, dict):
             return None, f"expected contents to be of type `Dict`, but found {type(resource_obj)}"
         if root_key not in resource_obj:
             return None, f"resource does not contain root key `{root_key}`"
@@ -79,7 +79,7 @@ class ResourceLoader:
 
         if resource_obj is None:
             return {}, ""
-        if not isinstance(resource_obj, Dict):
+        if not isinstance(resource_obj, dict):
             return None, f"expected first element to be of type `Dict` but found {type(resource_obj)}"
 
         result: _resource_type = {}
@@ -88,7 +88,7 @@ class ResourceLoader:
                 return None, f"expected resource keys to be of type `str`, but found key `{k}` with type `{type(k)}`"
             if "." in k or ":" in k:
                 return None, f"key names cannot contain '.' or ':', found in key `{k}`"
-            if not isinstance(v, Dict):
+            if not isinstance(v, dict):
                 return None, f"expected value for key `{k}` to be of type `Dict` but found {type(v)}"
 
             result[k] = {}

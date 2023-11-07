@@ -2,7 +2,6 @@ import asyncio
 import sys, os
 import click
 from typing import Callable
-from click import version_option
 
 from .run import ExecutionTrace
 
@@ -35,6 +34,9 @@ def init(path: str):
 
 @athena.group()
 def create():
+    """
+    Create workspaces or collections
+    """
     pass
 
 @create.command(name="workspace")
@@ -61,7 +63,7 @@ def create_collection(name: str, workspace: str):
     try to use the workspace in the current working directory.
     """
     collection_path = file.create_collection(os.getcwd(), workspace if workspace != "" else None, name)
-    click.echo(f'Created collectio at `{collection_path}`')
+    click.echo(f'Created collection at `{collection_path}`')
 
 def resolve_module_path(path_or_key: str) -> tuple[str, str, str, str]:
     if path_or_key.count(":") == 2:
@@ -172,6 +174,9 @@ def status(path_or_key: str):
 
 @athena.group()
 def export():
+    """
+    Export secrets or variables
+    """
     pass
 
 @export.command(name='secrets')
@@ -192,6 +197,9 @@ def export_variables():
 
 @athena.group(name="import")
 def athena_import():
+    """
+    Import secrets or variables
+    """
     pass
 
 @athena_import.command(name='secrets')

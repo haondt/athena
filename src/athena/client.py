@@ -2,7 +2,7 @@ import aiohttp
 
 from .resource import ResourceLoader, try_extract_value_from_resource
 from .exceptions import AthenaException
-from typing import Any, Callable, List, Protocol, Dict
+from typing import Any, Callable, Protocol
 from .trace import AthenaTrace, ResponseTrace, RequestTrace
 from .request import RequestBuilder, Client
 from .json import AthenaJSONEncoder, serializeable
@@ -45,8 +45,8 @@ class Fixture(Protocol):
 
 _cache_value_types = str | int | float | bool
 class Cache:
-    def __init__(self, existing_data: Dict[Any, Any] | None=None):
-        self._data: Dict[str, _cache_value_types] = {}
+    def __init__(self, existing_data: dict[Any, Any] | None=None):
+        self._data: dict[str, _cache_value_types] = {}
         if existing_data is not None:
             for k, v in existing_data.items():
                 if isinstance(k, str) and isinstance(v, _cache_value_types):
@@ -107,10 +107,10 @@ class Athena:
         context: Context,
         resource_loader: ResourceLoader,
         async_session: aiohttp.ClientSession, 
-        cache_values: Dict
+        cache_values: dict
     ):
         self.__resource_loader = resource_loader
-        self.__history: List[AthenaTrace | str] = []
+        self.__history: list[AthenaTrace | str] = []
         self.__pending_requests = {}
         self.__history_lookup_cache = {}
         self.__async_session = async_session
@@ -164,7 +164,7 @@ class Athena:
     def client(self, base_build_request: Callable[[RequestBuilder], RequestBuilder] | None=None, name: str | None=None) -> Client:
         return Client(self.__async_session, base_build_request, name, self.__client_pre_hook, self.__client_post_hook)
 
-    def traces(self) -> List[AthenaTrace]:
+    def traces(self) -> list[AthenaTrace]:
         return [i for i in self.__history if isinstance(i, AthenaTrace)]
 
     def trace(self, subject: AthenaTrace | RequestTrace | ResponseTrace | None=None) -> AthenaTrace:

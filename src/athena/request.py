@@ -5,25 +5,25 @@ import uuid
 from .exceptions import AthenaException
 import requests
 import aiohttp, asyncio
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable
 from .trace import AthenaTrace, ResponseTrace, AioHttpRequestContainer, LinkedResponse
 
 
 class AthenaRequest:
     def __init__(self):
-        self.auth: None | Tuple[str, str] = None
-        self.headers: Dict[str, str] = {}
+        self.auth: None | tuple[str, str] = None
+        self.headers: dict[str, str] = {}
         self.base_url: str = ""
         self.url: str = ""
         self.method: str = ""
         self.files: Any = None
-        self.data: Dict[str, Any] = {}
-        self.json: Dict | List | str | None = None
+        self.data: dict[str, Any] = {}
+        self.json: dict | list | str | None = None
         self.params: Any = {}
         self.cookies: Any = None
 
-        self._before_hooks: List[Callable[[AthenaRequest], None]] = []
-        self._after_hooks: List[Callable[[ResponseTrace], None]] = []
+        self._before_hooks: list[Callable[[AthenaRequest], None]] = []
+        self._after_hooks: list[Callable[[ResponseTrace], None]] = []
 
     def _run_before_hooks(self) -> None:
         for hook in self._before_hooks:
@@ -79,8 +79,8 @@ class AuthBuilder:
 
 class HookBuilder:
     def __init__(self):
-        self.__before_hooks: List[Callable[[AthenaRequest], None]] = []
-        self.__after_hooks: List[Callable[[ResponseTrace], None]] = []
+        self.__before_hooks: list[Callable[[AthenaRequest], None]] = []
+        self.__after_hooks: list[Callable[[ResponseTrace], None]] = []
     def before(self, hook: Callable[[AthenaRequest], None]) -> HookBuilder:
         self.__before_hooks.append(hook)
         return self
@@ -129,7 +129,7 @@ class RequestBuilder:
         self.build_steps.append(add_json)
         return self
 
-    def form(self, payload: Dict[str, str | int | float | bool]) -> RequestBuilder:
+    def form(self, payload: dict[str, str | int | float | bool]) -> RequestBuilder:
         def add_data(rq: AthenaRequest):
             rq.data = payload
             return rq

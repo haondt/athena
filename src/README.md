@@ -4,25 +4,33 @@ athena is a file-based rest api client.
 
 # Usage
 
+athena can be run as a module, or with the included binary.
+
+```sh
+python3 -m athena --help
+
+athena --help
+```
+
 ## Setup
 
 Start by running the init in your project directory.
 
 ```sh
-python3 -m athena init .
+athena init .
 ```
 
 Enter this directory, and create a workspace
 
 ```sh
 cd athena
-python3 -m athena create workspace my-workspace
+athena create workspace my-workspace
 ```
 
 Lastly, create a new collection inside the workspace
 
 ```sh
-python3 -m athena create collection my-collection -w my-workspace
+athena create collection my-collection -w my-workspace
 ```
 
 ## Creating tests
@@ -102,7 +110,7 @@ it can find inside that directory.
 
 ```sh
 # run all the modules inside the api directory
-python3 -m athena run /path/to/athena/my-workspace/collections/my-collection/run/api
+athena run /path/to/athena/my-workspace/collections/my-collection/run/api
 ```
 
 ### Module keys
@@ -112,7 +120,7 @@ This key will be computed relative to the current working directory, and allows 
 
 ```sh
 # run all modules in "my-workspace" named "hello.py"
-python3 -m athena run "my-workspace:*:hello"
+athena run "my-workspace:*:hello"
 ```
 
 For any module in a collection `run` folder, the directory path relative to the `run` folder will make up the module name. 
@@ -139,25 +147,25 @@ A single asterisk (`*`) will use all directories.
 
 ```sh
 # run all modules in "my-workspace" named "hello.py"
-python3 -m athena run "my-workspace:*:hello"
+athena run "my-workspace:*:hello"
 ```
 
 For the module name, asterisks can be used to denote "any module/directory", and double asterisks (`**`) can be used to denote any subdirectory.
 
 ```sh
 # runs all files
-python3 -m athena run "*:*:**"
+athena run "*:*:**"
 
 # runs red.py and green.py
-python3 -m athena run "*:*:*"
+athena run "*:*:*"
 
 # runs only blue.py
-python3 -m athena run "*:*:*.*"
-python3 -m athena run "*:*:toast.*"
-python3 -m athena run "*:*:**blue"
+athena run "*:*:*.*"
+athena run "*:*:toast.*"
+athena run "*:*:**blue"
 
 # run all modules in the collection of the current directory
-python3 -m athena run ".:.:**"
+athena run ".:.:**"
 ```
 
 Internally, asterisks are compiled into the regular expression `[^.]+` and double asterisks are compiled into `.+`.
