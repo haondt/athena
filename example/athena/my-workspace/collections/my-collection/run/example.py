@@ -1,11 +1,11 @@
 from athena.client import Athena, jsonify
 
-def example(athena: Athena):
+def run(athena: Athena):
     # form example
     client = athena.client(lambda r: r
         .base_url("http://helios.gabbro/"))
     response = client.put("hx/group/423d60b8-ecfb-4490-9503-f3334241d581", lambda r: r
-        .form({
+        .body.form({
             "name": "Server",
             "id": "423d60b8-ecfb-4490-9503-f3334241d581"
         }))
@@ -18,13 +18,13 @@ def example2(athena: Athena):
 
     client = athena.client(lambda r: r
         .base_url(base_url)
-        .auth(lambda a: a.bearer(secret)))
+        .auth.bearer(secret))
 
     response1 = client.get("api/v1/hello")
     response2 = client.post("api/v1/hello", lambda r: r
         .header("foo", "bar")
         .header("baz", "qux")
-        .json({
+        .body.json({
             "foo": "bar",
             "baz": [1, 2, 3]
         }))

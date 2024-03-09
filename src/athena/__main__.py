@@ -12,6 +12,7 @@ from .exceptions import AthenaException
 from .format import colors, color
 from . import display
 from .json import jsonify, dejsonify
+from .watch import watch as athena_watch
 
 @click.group()
 @click.version_option()
@@ -126,11 +127,12 @@ def run_modules_and(
         path_or_key: str,
         environment: str | None=None,
         module_callback: Callable[[str, ExecutionTrace], None] | None=None,
-        final_callback: Callable[[dict[str, ExecutionTrace]], None] | None=None
+        final_callback: Callable[[dict[str, ExecutionTrace]], None] | None=None,
+        loop: asyncio.AbstractEventLoop | None = None
         ):
     root, workspace, collection, module = resolve_module_path(path_or_key)
     modules = file.search_modules(root, workspace, collection, module)
-    loop = asyncio.get_event_loop()
+    loop = loop or asyncio.get_event_loop()
     try:
         results = loop.run_until_complete(athena_run.run_modules(root, modules, environment, module_callback))
         if final_callback is not None:
@@ -153,6 +155,30 @@ def run(path_or_key: str, environment: str | None):
             path_or_key,
             environment=environment,
             module_callback=lambda key, result: click.echo(f"{key}: {result.format_long()}"))
+
+@athena.command()
+@click.argument('path_or_key', type=str)
+@click.option('-e', '--environment', type=str, help="environment to use for execution", default=None)
+def watch(path_or_key: str, environment: str | None):
+    """
+    Watch the given path for changes, and execute `responses` on the changed file.
+
+    PATH_OR_KEY - Name of module, collection or workspace to watch. Can be provided as a module key, e.g. workspace:collection:path.to.module.
+    or as a path to a file or directory.
+    """
+    root, workspace, collection, module = resolve_module_path(path_or_key)
+    mask = file.build_module_key_regex(workspace, collection, module)
+
+    def on_change(path: str):
+        try:
+            path_key = file.convert_path_to_module_key(root, path)
+            if mask.match(path_key):
+                run_modules_and(path_key, environment=environment, module_callback=lambda _, result: click.echo(f"{display.responses(result)}"), loop=asyncio.new_event_loop())
+        except:
+            pass
+
+    click.echo(f'Starting to watch `{path_or_key}`. Press ^C to stop.')
+    athena_watch(root, on_change)
 
 @athena.command()
 @click.argument('path_or_key', type=str)

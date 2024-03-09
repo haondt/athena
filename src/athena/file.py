@@ -143,6 +143,24 @@ def list_modules(root: str) -> dict[str, str]:
                                 module_list[module_key] = modules[k]
     return module_list
 
+def convert_path_to_module_key(root: str, path: str):
+    m = re.compile(root + r'(?:/([^/]+)(?:/collections/([^/]+)(?:/run/(.+\.py))?)?)?').match(path)
+    if m:
+        workspace, collection, module = m.groups()
+        workspace = workspace or "*"
+        collection = collection or "*"
+        if module is None:
+            module = "**"
+        else:
+            module = module.replace("/", ".")
+            if not module.endswith(".py"):
+                module += ".**"
+            else:
+                module = module[:-3]
+        return f"{workspace}:{collection}:{module}"
+    else:
+        raise AthenaException(f"path `{path}` does not appear to be an athena executable module")
+
 def list_directories(root: str) -> dict[str, str]:
     directory_list = {}
     for entry in os.listdir(root):
@@ -175,7 +193,7 @@ def __search_for_python_files(root: str, current_name=""):
     return contents
 
 
-def search_modules(root: str, workspace: str, collection: str, module: str):
+def build_module_key_regex(workspace: str, collection: str, module: str):
     module_re = "^"
 
     if workspace == "*":
@@ -212,7 +230,11 @@ def search_modules(root: str, workspace: str, collection: str, module: str):
     module_re += f"{module_name_re}$"
     module_re = re.compile(module_re)
 
-    return {k:v for k, v in list_modules(root).items() if module_re.match(k)}
+    return module_re
+
+def search_modules(root: str, workspace: str, collection: str, module: str):
+    regex = build_module_key_regex(workspace, collection, module)
+    return {k:v for k, v in list_modules(root).items() if regex.match(k)}
 
 def import_yaml(file) -> object:
      return yaml.load(file, Loader=yaml.FullLoader)

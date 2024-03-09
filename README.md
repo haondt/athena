@@ -462,6 +462,14 @@ my-workspace:my-collection:api.get_planets •
 │ 
 ```
 
+**watch**
+
+Watches the athena directory for file writes. Any written modules that match the given path
+key will be executed with the `responses` command.
+
+```shell
+athena watch .
+```
 
 ### Imported
 
