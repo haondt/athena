@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Callable
 
 from .format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
 from .trace import AthenaTrace, LinkedRequest, LinkedResponse
-from . import cache
+from . import cache, file
 from .client import Athena, Context
 from .exceptions import AthenaException
 from .resource import ResourceLoader
@@ -11,13 +11,13 @@ import importlib, inspect
 import aiohttp
 
 class ExecutionTrace:
-    def __init__(self, module_key: str):
+    def __init__(self, module_name: str):
         self.success: bool = False
         self.athena_traces: List[AthenaTrace] = []
         self.error: Exception | None = None
         self.result: Any = None
         self.filename: str | None  = None
-        self.module_key: str = module_key
+        self.module_name: str = module_name
         self.environment: str | None = None
 
     def format_short(self) -> str:
@@ -44,22 +44,22 @@ class ExecutionTrace:
         else:
             return f"{color('passed', colors.green)}"
 
-async def run_modules(root, modules, environment: str | None=None, module_completed_callback: Callable[[str, ExecutionTrace], None] | None=None) -> Dict[str, ExecutionTrace]:
+async def run_modules(root, modules: list[str], environment: str | None=None, module_completed_callback: Callable[[str, ExecutionTrace], None] | None=None) -> Dict[str, ExecutionTrace]:
     sys.path[0] = ''
     athena_cache = cache.load(root)
     results = {}
     try:
-        for k in modules:
-            path = modules[k]
-            results[k] = await _run_module(root, k, path, athena_cache, environment)
+        for path in modules:
+            module_name = os.path.basename(path)[:-3]
+            results[path] = await _run_module(root, module_name, path, athena_cache, environment)
             if module_completed_callback is not None:
-                module_completed_callback(k, results[k])
+                module_completed_callback(module_name, results[path])
     finally:
         cache.save(root, athena_cache)
     return results
 
-async def _run_module(module_root, module_key, module_path, athena_cache: cache.Cache, environment=None) -> ExecutionTrace:
-    trace = ExecutionTrace(module_key)
+async def _run_module(module_root, module_name, module_path, athena_cache: cache.Cache, environment=None) -> ExecutionTrace:
+    trace = ExecutionTrace(module_name)
     trace.filename = module_path
     trace.environment = environment
 
@@ -69,21 +69,18 @@ async def _run_module(module_root, module_key, module_path, athena_cache: cache.
     if not module_path.endswith(".py"):
         raise AthenaException(f"not a python module {module_path}")
 
-    module_workspace, module_collection, module_fullname = module_key.split(":")
-    module_name = module_fullname.split(".")[-1]
+    module_relpath = os.path.relpath(module_root, module_path)
 
     module_dir = os.path.dirname(module_path)
-    workspace_fixture_dir = os.path.join(module_root, module_workspace)
-    collection_fixture_dir = os.path.join(module_root, module_workspace, "collections", module_collection)
 
     context = Context(
         environment,
-        module_key,
+        module_name,
+        module_path,
         module_root,
-        workspace_fixture_dir,
-        collection_fixture_dir
     )
     resource_loader = ResourceLoader()
+
     async with aiohttp.ClientSession(request_class=LinkedRequest, response_class=LinkedResponse) as session:
         athena_instance = Athena(
             context,
@@ -93,16 +90,9 @@ async def _run_module(module_root, module_key, module_path, athena_cache: cache.
         )
 
         try:
-            # load workspace fixture
-            if os.path.isfile(os.path.join(workspace_fixture_dir, "fixture.py")):
-                success, _, trace.error = __try_execute_module(workspace_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
-                if not success and trace.error is not None:
-                    trace.athena_traces = athena_instance.traces()
-                    return trace
-
-            # load collection fixture
-            if os.path.isfile(os.path.join(collection_fixture_dir, "fixture.py")):
-                success, _, trace.error = __try_execute_module(collection_fixture_dir, "fixture", "fixture", (athena_instance.fixture,))
+            # load fixtures
+            for fixture_path in file.search_module_half_ancestors(module_root, module_path, 'fixture.py'):
+                success, _, trace.error = __try_execute_module(os.path.dirname(fixture_path), "fixture", "fixture", (athena_instance.fixture,))
                 if not success and trace.error is not None:
                     trace.athena_traces = athena_instance.traces()
                     return trace

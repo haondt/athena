@@ -74,7 +74,7 @@ def update_planet(planet_name):
     planet = next((p for p in solar_system_data["planets"] if p["name"] == planet_name), None)
     if planet:
         data = request.json
-        if 'description' in data:
+        if data is not None and 'description' in data:
             planet['description'] = data['description']
         return jsonify(planet)
     return jsonify({"error": "Planet not found"}), 404

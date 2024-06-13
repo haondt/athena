@@ -1,6 +1,6 @@
 import aiohttp
 
-from .resource import ResourceLoader, try_extract_value_from_resource
+from .resource import ResourceLoader, try_extract_value_from_resource, _resource_type
 from .exceptions import AthenaException
 from typing import Any, Callable, Protocol
 from .trace import AthenaTrace, ResponseTrace, RequestTrace
@@ -89,18 +89,15 @@ class Cache:
 class Context:
     def __init__(self,
         environment: str | None,
-        key: str,
-        root_path: str,
-        workspace_path: str,
-        collection_path: str
+        module_name: str,
+        module_path: str,
+        root_path: str
     ):
         self._environment = environment
         self.environment = str(environment)
-        self.key = key
+        self.module_name = module_name
+        self.module_path = module_path
         self.root_path = root_path
-        self.workspace_path = workspace_path
-        self.collection_path = collection_path
-        self.workspace, self.collection, self.module = self.key.split(":")
 
 class Athena:
     def __init__(self,
@@ -120,34 +117,20 @@ class Athena:
         self.context = context
 
     def variable(self, name: str) -> str:
-        root, workspace, collection = self.context.root_path, self.context.workspace, self.context.collection
-
-        collection_variables = self.__resource_loader.load_collection_variables(root, workspace, collection)
-        success, value = try_extract_value_from_resource(collection_variables, name, self.context._environment)
-        if success:
-            return str(value)
-
-        workspace_variables = self.__resource_loader.load_workspace_variables(root, workspace)
-        success, value = try_extract_value_from_resource(workspace_variables, name, self.context._environment)
-        if success:
-            return str(value)
-
-        raise AthenaException(f"unable to find variable \"{name}\" with environment \"{self.context.environment}\". ensure variables have at least a default environment.")
-
+        return self.__resource(name, self.__resource_loader.load_variables, 'variable')
     def secret(self, name: str) -> str:
-        root, workspace, collection = self.context.root_path, self.context.workspace, self.context.collection
+        return self.__resource(name, self.__resource_loader.load_secrets, 'secret')
 
-        collection_secrets = self.__resource_loader.load_collection_secrets(root, workspace, collection)
-        success, value = try_extract_value_from_resource(collection_secrets, name, self.context._environment)
+    def __resource(self, name: str, resource_loading_method: Callable[[str, str], _resource_type], resource_type: str) -> str:
+        root = self.context.root_path
+
+        resource = resource_loading_method(root, self.context.module_path)
+        success, value = try_extract_value_from_resource(resource, name, self.context._environment)
         if success:
             return str(value)
 
-        workspace_secrets = self.__resource_loader.load_workspace_secrets(root, workspace)
-        success, value = try_extract_value_from_resource(workspace_secrets, name, self.context._environment)
-        if success:
-            return str(value)
+        raise AthenaException(f"unable to find {resource_type} \"{name}\" with environment \"{self.context.environment}\". ensure {resource_type}s have at least a default environment.")
 
-        raise AthenaException(f"unable to find secret \"{name}\" with environment \"{self.context.environment}\". ensure secrets have at least a default environment")
 
     def __client_pre_hook(self, trace_id: str) -> None:
         self.__history.append(trace_id)

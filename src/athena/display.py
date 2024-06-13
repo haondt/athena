@@ -84,7 +84,7 @@ def responses(trace: ExecutionTrace):
     def main_header() -> str:
         section_output = ""
         success_color = colors.green if trace.success else colors.red
-        section_output += f"{color(trace.module_key, colors.underline, colors.bold)} {color('•', success_color)}"
+        section_output += f"{color(trace.module_name, colors.underline, colors.bold)} {color('•', success_color)}"
         return section_output
     def sub_header() -> str:
         section_output = ""
