@@ -1,7 +1,7 @@
 from datetime import timedelta
 import requests, json, aiohttp, re
 from .exceptions import AthenaException
-from .json import serializeable, jsonify
+from .athena_json import serializeable, jsonify
 from typing import Callable
 
 class AioHttpRequestContainer:

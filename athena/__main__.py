@@ -17,7 +17,7 @@ from . import status as athena_status
 from .exceptions import AthenaException
 from .format import colors, color
 from . import display
-from .json import jsonify, dejsonify
+from .athena_json import jsonify, dejsonify
 from .watch import watch as athena_watch
 
 LOG_TEMPLATE = '[%(levelname)s] %(name)s: %(message)s'

@@ -18,7 +18,8 @@ dependencies = [
     "requests>=2.31.0",
     "aiohttp>=3.8.6",
     "Pygments>=2.16.1",
-    "watchdog>=4.0.0"
+    "watchdog>=4.0.0",
+    "Faker>=25.8.0"
 ]
 
 [tool.flit.module]

@@ -5,7 +5,8 @@ from .exceptions import AthenaException
 from typing import Any, Callable, Protocol
 from .trace import AthenaTrace, ResponseTrace, RequestTrace
 from .request import RequestBuilder, Client
-from .json import AthenaJSONEncoder, serializeable
+from .athena_json import AthenaJSONEncoder, serializeable
+from .fake import Fake
 from json import dumps as json_dumps
 import inspect
 
@@ -115,6 +116,7 @@ class Athena:
         self.infix: Fixture = _InjectFixture(self.fixture, self)
         self.cache = Cache(cache_values)
         self.context = context
+        self.fake = Fake()
 
     def variable(self, name: str) -> str:
         return self.__resource(name, self.__resource_loader.load_variables, 'variable')

@@ -1,6 +1,6 @@
 import os
 
-from .json import serializeable, jsonify, deserializeable, dejsonify
+from .athena_json import serializeable, jsonify, deserializeable, dejsonify
 
 @serializeable
 @deserializeable

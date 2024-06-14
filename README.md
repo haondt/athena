@@ -18,6 +18,7 @@ athena is a file-based rest api client.
   - [environments, variables and secrets](#environments-variables-and-secrets)
   - [cache](#cache)
   - [fixtures](#fixtures)
+  - [fakes](#fakes)
   - [hooks](#hooks)
   - [async requests](#async-requests)
   - [jsonification](#jsonification)
@@ -291,6 +292,22 @@ from athena.client import Athena
 def run(athena: Athena):
     client = athena.infix.client()
     client.post("path/to/resource")
+```
+
+## fakes
+
+athena includes a module called `fakes` that is a thin wrapper / extension around [Faker](https://faker.readthedocs.io/en/master/). This allows you to generate randomized data for requests.
+
+```python
+from athena.client import Athena
+
+def run(athena: Athena):
+    client = athena.fixture.client(athena)
+    client.post("api/planets", lambda r: r
+        .body.json({
+            'name': athena.fake.first_name()
+        })
+    )
 ```
 
 ## hooks

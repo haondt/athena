@@ -2,7 +2,7 @@ import os, glob
 from typing import Tuple
 from . import file
 from .exceptions import AthenaException
-from .json import serializeable, deserializeable
+from .athena_json import serializeable, deserializeable
 
 DEFAULT_ENVIRONMENT_KEY = "__default__"
 _resource_value_type = str | int | float | bool | None

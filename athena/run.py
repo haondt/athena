@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Callable
 
 from . import history
 
-from .json import jsonify, serializeable
+from .athena_json import jsonify, serializeable
 
 from .format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
 from .trace import AthenaTrace, LinkedRequest, LinkedResponse
