@@ -1,0 +1,13 @@
+tasks:
+  - type: python-build
+    package: haondt-charon
+    registries:
+      - testpypi
+  - type: python-build
+    auto:
+      - source: push
+    package: haondt-charon
+    registries:
+      - pypi
+      - gitlab
+
