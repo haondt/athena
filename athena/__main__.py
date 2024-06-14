@@ -176,13 +176,17 @@ def run(paths: list[str], environment: str | None, verbose: bool):
 
 @athena.command()
 @click.argument('path', type=str, required=False)
+@click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
 @click.option('-e', '--environment', type=str, help="environment to use for execution", default=None)
-def watch(path: str | None, environment: str | None):
+def watch(path: str | None, environment: str | None, verbose: bool):
     """
     Watch the given path for changes, and execute `responses` on the changed file.
 
     PATH - Path to file or directory of modules to watch.
     """
+    if (verbose):
+        logging.root.setLevel(logging.INFO)
+
     path = path or os.getcwd()
     root = file.find_root(path)
 
@@ -357,13 +361,17 @@ def athena_import_variables(variable_data: str, variable_path: str | None):
 
 @athena.command()
 @click.argument('paths', type=str, nargs=-1)
+@click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
 @click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
-def responses(paths: list[str], environment: str | None):
+def responses(paths: list[str], environment: str | None, verbose: bool):
     """
     Run one or more modules and print the response traces.
     
     PATH - Path to file or directory of modules to watch.
     """
+    if (verbose):
+        logging.root.setLevel(logging.INFO)
+
     run_modules_and(
             paths,
             force_environment=environment,
