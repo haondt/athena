@@ -1,7 +1,7 @@
 from json import JSONEncoder, dumps, loads, JSONDecoder
 from typing import Any, Type
 
-from athena.exceptions import AthenaException
+from .exceptions import AthenaException
 
 
 _serializeable_classes = set()

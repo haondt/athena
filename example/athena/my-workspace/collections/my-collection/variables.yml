@@ -1,5 +1,0 @@
-variables:
-  base_url:
-    __default__: "http://localhost:5000/"
-  user:
-    __default__: "admin"

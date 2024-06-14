@@ -3,9 +3,12 @@ import sys, os
 import click
 from typing import Callable
 
+from .resource import DEFAULT_ENVIRONMENT_KEY, create_sample_resource_file
+
 from .run import ExecutionTrace
 
 from . import file
+from . import state as athena_state
 from . import run as athena_run
 from . import status as athena_status
 from .exceptions import AthenaException
@@ -25,178 +28,172 @@ def athena():
     dir_okay=True,
     file_okay=False,
     writable=True
-    ))
-def init(path: str):
+    ), required=False)
+def init(path: str | None):
     """
     Initializes an athena project at PATH/athena
     """
-    athena_path = file.init(path)
-    click.echo(f'Created athena project at: `{athena_path}`')
+    root = file.init(path or os.getcwd())
+    state = athena_state.init()
+    athena_state.save(root, state)
+
+    create_sample_resource_file(os.path.join(root, 'variables.yml'), {
+        'my_variable': { '__default__': 'my value'}
+        })
+    create_sample_resource_file(os.path.join(root, 'secrets.yml'), {
+        'my_secret': { '__default__': 'my secret value'}
+        })
+
+    click.echo(f'Created athena project at: `{root}`')
 
 @athena.group()
-def create():
+def get():
     """
-    Create workspaces or collections
+    get information about athena
     """
     pass
 
-@create.command(name="workspace")
-@click.argument('name', type=str)
-def create_workspace(name: str):
+def internal_get_environment(path: str | None):
+    path = path or os.getcwd()
+    root = file.find_root(path)
+    state = athena_state.load(root)
+    return state.environment
+
+@get.command(name='environment')
+@click.option('-p', '--path', type=str, help="path to athena directory", default=None)
+def get_environment(path: str | None):
     """
-    Creates a workspace inside the current athena project
-
-    NAME - name of workspace to create
+    Gets the default environment
     """
-    workspace_path = file.create_workspace(os.getcwd(), name)
-    click.echo(f'Created workspace at `{workspace_path}')
+    environment = internal_get_environment(path)
+    click.echo(environment)
 
-@create.command(name="collection")
-@click.argument('name', type=str)
-@click.option('-w', '--workspace', type=str,
-    help="Parent workspace of collection."
-)
-def create_collection(name: str, workspace: str):
+@athena.group(name='set')
+def set_command():
     """
-    Creates a collection inside the current athena project
-
-    Will created collection inside WORKSPACE if provided, otherwise
-    try to use the workspace in the current working directory.
+    set information about athena
     """
-    collection_path = file.create_collection(os.getcwd(), workspace if workspace != "" else None, name)
-    click.echo(f'Created collection at `{collection_path}`')
+    pass
 
-def resolve_module_path(path_or_key: str) -> tuple[str, str, str, str]:
-    if path_or_key.count(":") == 2:
-        current_dir = os.path.normpath(os.getcwd())
-        root, workspace, collection = file.find_context(current_dir)
-        paths = path_or_key.split(":")
-        module = paths[2]
-        if len(paths) != 3:
-            raise AthenaException("invalid format")
-        if paths[0] == ".":
-            if workspace is None:
-                raise AthenaException("not inside a workspace")
-        else:
-            workspace = paths[0]
-        if paths[1] == ".":
-            if collection is None:
-                raise AthenaException("not inside a collection")
-        else:
-            collection = paths[1]
-        if paths[2] == ".":
-            if collection is None:
-                raise AthenaException("not inside a module")
-            collection_path = os.path.join(root, workspace, "collections", collection)
-            relative_path = os.path.relpath(current_dir, collection_path)
-            parts = relative_path.split(os.path.sep)
-            if parts[0] != "run":
-                raise AthenaException("not inside a module")
-            module = ".".join(parts[1:])
-            if len(module) == 0:
-                module = "**"
-            else:
-                module += ".**"
-        return root, workspace, collection, module
-    else:
-        path_or_key = os.path.abspath(path_or_key)
-        if not os.path.exists(path_or_key):
-            raise AthenaException(f"no such file or directory: {path_or_key}")
-        root, workspace, collection = file.find_context(path_or_key)
-        if workspace is not None and collection is not None:
-            base_path = os.path.join(root, workspace, "collections", collection)
-            rel_path = os.path.relpath(path_or_key, base_path)
-            rel_path_parts = rel_path.split(os.path.sep)
+@set_command.command(name='environment')
+@click.option('-p', '--path', type=str, help="path to athena directory", default=None)
+@click.argument('environment', type=str)
+def set_environment(path: str | None, environment: str):
+    """
+    Sets the default environment
+    """
+    path = path or os.getcwd()
+    root = file.find_root(path)
+    state = athena_state.load(root)
+    state.environment = environment
+    athena_state.save(root, state)
 
-            if rel_path == "." or \
-                    (len(rel_path_parts) == 1 and rel_path_parts[0] == "run"):
-                return root, workspace, collection, "**"
 
-            if not rel_path_parts[0] == "run":
-                raise AthenaException("cannot run modules outside of `run` directory")
+@athena.group()
+def clear():
+    """
+    clear information about athena
+    """
+    pass
 
-            module_part = ".".join(rel_path_parts[1:])
-            if module_part.endswith(".py"):
-                module_part = module_part[:-3]
-            else:
-                module_part = module_part + ".**"
-            return root, workspace, collection, module_part
-        return root, workspace or "*", collection or "*", "**"
+@clear.command(name='environment')
+@click.option('-p', '--path', type=str, help="path to athena directory", default=None)
+def clear_environment(path: str | None):
+    """
+    Sets the default environment
+    """
+    path = path or os.getcwd()
+    root = file.find_root(path)
+    state = athena_state.load(root)
+    state.environment = DEFAULT_ENVIRONMENT_KEY
+    athena_state.save(root, state)
 
 def run_modules_and(
-        path_or_key: str,
-        environment: str | None=None,
+        paths: list[str],
+        force_environment: str | None=None,
         module_callback: Callable[[str, ExecutionTrace], None] | None=None,
         final_callback: Callable[[dict[str, ExecutionTrace]], None] | None=None,
         loop: asyncio.AbstractEventLoop | None = None
         ):
-    root, workspace, collection, module = resolve_module_path(path_or_key)
-    modules = file.search_modules(root, workspace, collection, module)
-    loop = loop or asyncio.get_event_loop()
-    try:
-        results = loop.run_until_complete(athena_run.run_modules(root, modules, environment, module_callback))
-        if final_callback is not None:
-            final_callback(results)
-    finally:
-        loop.close()
+    paths = [os.path.abspath(p) for p in paths]
+    paths = [p for p in paths if not file.should_ignore_file(p)]
+    module_paths_by_root = {}
+    for path in paths:
+        if not os.path.exists(path):
+            raise AthenaException(f"no such file or directory: {path}")
+        root = file.find_root(path)
+        if root not in module_paths_by_root:
+            module_paths_by_root[root] = set()
+        if path not in module_paths_by_root[root]:
+            module_paths_by_root[root].add(path)
+
+    for root, modules in module_paths_by_root.items():
+        loop = loop or asyncio.get_event_loop()
+        try:
+            environment = force_environment or internal_get_environment(root)
+            results = loop.run_until_complete(athena_run.run_modules(root, modules, environment, module_callback))
+            if final_callback is not None:
+                final_callback(results)
+        finally:
+            loop.close()
 
 
 @athena.command()
-@click.argument('path_or_key', type=str)
+@click.argument('paths', type=str, nargs=-1)
 @click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
-def run(path_or_key: str, environment: str | None):
+def run(paths: list[str], environment: str | None):
     """
     Run one or more modules and print the output.
     
-    PATH_OR_KEY - Name of module, collection or workspace to run. Can be provided as a module key, e.g. workspace:collection:path.to.module.
-    or as a path to a file or directory.
+    PATH - Path to module(s) to run.
     """
     run_modules_and(
-            path_or_key,
-            environment=environment,
-            module_callback=lambda key, result: click.echo(f"{key}: {result.format_long()}"))
+            paths,
+            force_environment=environment,
+            module_callback=lambda module_name, result: click.echo(f"{module_name}: {result.format_long()}"))
 
 @athena.command()
-@click.argument('path_or_key', type=str)
+@click.argument('path', type=str, required=False)
 @click.option('-e', '--environment', type=str, help="environment to use for execution", default=None)
-def watch(path_or_key: str, environment: str | None):
+def watch(path: str | None, environment: str | None):
     """
     Watch the given path for changes, and execute `responses` on the changed file.
 
-    PATH_OR_KEY - Name of module, collection or workspace to watch. Can be provided as a module key, e.g. workspace:collection:path.to.module.
-    or as a path to a file or directory.
+    PATH - Path to file or directory of modules to watch.
     """
-    root, workspace, collection, module = resolve_module_path(path_or_key)
-    mask = file.build_module_key_regex(workspace, collection, module)
+    path = path or os.getcwd()
+    root = file.find_root(path)
 
-    def on_change(path: str):
+    def on_change(changed_path: str):
         try:
-            path_key = file.convert_path_to_module_key(root, path)
-            if mask.match(path_key):
-                run_modules_and(path_key, environment=environment, module_callback=lambda _, result: click.echo(f"{display.responses(result)}"), loop=asyncio.new_event_loop())
-        except:
-            pass
+            if not file.should_ignore_file(changed_path):
+                run_modules_and([changed_path], force_environment=environment, module_callback=lambda _, result: click.echo(f"{display.responses(result)}"), loop=asyncio.new_event_loop())
+        except Exception as e:
+            sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
 
-    click.echo(f'Starting to watch `{path_or_key}`. Press ^C to stop.')
-    athena_watch(root, on_change)
+    click.echo(f'Starting to watch `{path}`. Press ^C to stop.')
+    athena_watch(root, 0.1, on_change)
 
 @athena.command()
-@click.argument('path_or_key', type=str)
-def status(path_or_key: str):
+@click.argument('path', type=str, required=False)
+def status(path: str | None):
     """
     Print information about this athena project.
     
-    PATH_OR_KEY - Name of module, collection or workspace to run. Can be provided as a module key, e.g. workspace:collection:path.to.module.
-    or as a path to a file or directory.
+    PATH - Path to file or directory of modules to watch.
     """
-    root, workspace, collection, module = resolve_module_path(path_or_key)
-    modules = file.search_modules(root, workspace, collection, module)
+    raise AthenaException('Not implemeneted')
+
+    path = path or os.getcwd()
+    root = file.find_root(path)
+    modules = file.search_modules(path)
     click.echo("modules:")
-    click.echo("\n".join(["  " + i for i in modules.keys()]))
-    directories = file.list_directories(root)
-    environments = athena_status.search_environments(root, list(directories.keys()))
+    click.echo("\n".join(["  " + i for i in modules]))
+    environments = athena_status.search_environments(root, modules)
     click.echo("environments:")
     click.echo("\n".join(["  " + i for i in environments]))
+    click.echo("default environment:")
+    click.echo(f"  {internal_get_environment(root) or 'None'}")
 
 @athena.group()
 def export():
@@ -208,17 +205,15 @@ def export():
 @export.command(name='secrets')
 def export_secrets():
     current_dir = os.path.normpath(os.getcwd())
-    root, _, _ = file.find_context(current_dir)
-    directories = file.list_directories(root)
-    secrets = athena_status.collect_secrets(root, list(directories.keys()))
+    root = file.find_root(current_dir)
+    secrets = athena_status.collect_secrets(root)
     click.echo(jsonify(secrets, reversible=True))
 
 @export.command(name='variables')
 def export_variables():
     current_dir = os.path.normpath(os.getcwd())
-    root, _, _ = file.find_context(current_dir)
-    directories = file.list_directories(root)
-    variables = athena_status.collect_variables(root, list(directories.keys()))
+    root = file.find_root(current_dir)
+    variables = athena_status.collect_variables(root)
     click.echo(jsonify(variables, reversible=True))
 
 @athena.group(name="import")
@@ -242,6 +237,7 @@ def athena_import_secrets(secret_data: str, secret_path: str | None):
 
     SECRET_DATA - secret data to import. Alternatively, a file can be supplied.
     """
+    raise AthenaException('Not implemeneted')
     if secret_path is None:
         if secret_data is None:
             raise AthenaException("no data provided")
@@ -296,6 +292,7 @@ def athena_import_variables(variable_data: str, variable_path: str | None):
 
     VARIABLE_DATA - variable data to import. Alternatively, a file can be supplied.
     """
+    raise AthenaException('Not implemeneted')
     if variable_path is None:
         if variable_data is None:
             raise AthenaException("no data provided")
@@ -337,18 +334,17 @@ def athena_import_variables(variable_data: str, variable_path: str | None):
     click.echo("Variables imported.")
 
 @athena.command()
-@click.argument('path_or_key', type=str)
+@click.argument('paths', type=str, nargs=-1)
 @click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
-def responses(path_or_key: str, environment: str | None):
+def responses(paths: list[str], environment: str | None):
     """
     Run one or more modules and print the response traces.
     
-    PATH_OR_KEY - Name of module, collection or workspace to run. Can be provided as a module key, e.g. workspace:collection:path.to.module.
-    or as a path to a file or directory.
+    PATH - Path to file or directory of modules to watch.
     """
     run_modules_and(
-            path_or_key,
-            environment=environment,
+            paths,
+            force_environment=environment,
             module_callback=lambda _, result: click.echo(f"{display.responses(result)}"))
 
 def main():
