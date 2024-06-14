@@ -1,11 +1,35 @@
 # athena
 
-[![PyPI - Version](https://img.shields.io/pypi/v/haondt_athena?label=PyPI)](https://pypi.org/project/haondt-athena/)
-[![GitHub release (latest by date)](https://img.shields.io/github/v/release/haondt/athena)](https://github.com/haondt/athena/releases/latest)
+[![PYPI - Version](https://img.shields.io/pypi/v/haondt_athena?label=PyPI)](https://pypi.org/project/haondt-athena/)
+[![GitHub release (latest by date)](https://img.shields.io/gitlab/v/release/haondt/athena)](https://gitlab.com/haondt/athena/-/releases/permalink/latest)
 
 athena is a file-based rest api client.
 
-# Motivation
+# table of contents
+
+- [motivation](#motivation)
+- [installation](#installation)
+- [usage](#usage)
+  - [setup](#setup)
+  - [creating tests](#creating-tests)
+  - [sending requests](#sending-requests)
+  - [running tests](#running-tests)
+- [additional features](#additional-features)
+  - [environments, variables and secrets](#environments-variables-and-secrets)
+  - [cache](#cache)
+  - [fixtures](#fixtures)
+  - [hooks](#hooks)
+  - [async requests](#async-requests)
+  - [jsonification](#jsonification)
+  - [context](#context)
+  - [assertions](#assertions)
+- [utilities](#utilities)
+  - [import/export](#importexport)
+  - [responses](#responses)
+  - [watch](#watch)
+- [development](#development)
+
+# motivation
 
 I can store my athena workspaces inside the repo of the project they test. Something I was originally doing with ThunderClient before they changed their payment
 model, but even better since I can leverage some python scripting and automation inside my test cases. 
@@ -14,19 +38,24 @@ any text editor.
 
 # Installation
 
-athena is available on PyPI.
+athena can be installed as a pypi package or from source. athena requires python>=3.11
 
 ```sh
-python3 -m pip install haondt_athena
+# from pypi
+python3 -m pip install haondt-athena
+# from gitlab
+python3 -m pip install haondt-athena --index-url https://gitlab.com/api/v4/projects/57154225/packages/pypi/simple
+# from source
+git clone https://gitlab.com/haondt/athena.git
+python3 -m pip install ./athena
 ```
 
-# Usage
+# usage
 
 athena can be run as a module, or with the included binary.
 
 ```sh
 python3 -m athena --help
-
 athena --help
 ```
 
@@ -35,7 +64,7 @@ athena --help
 Start by running the init in your project directory.
 
 ```sh
-athena init .
+athena init
 ```
 
 This will create an `athena` directory.
@@ -44,66 +73,21 @@ This will create an `athena` directory.
 .
 └── athena
     ├── .athena
-    └── .gitignore
+    ├── .gitignore
+    ├── variables.yml
+    └── secrets.yml
 ```
 
-Enter this directory, and create a workspace
+
+## creating tests
+
+To create a test case, add a python file somewhere inside the athena directory
 
 ```sh
-cd athena
-athena create workspace my-workspace
+vim athena/hello.py
 ```
 
-This will create a directory for the workspace and set up some environment files.
-
-```sh
-.
-└── athena
-    ├── .athena
-    └── my-workspace
-        ├── collections
-        ├── secrets.yml
-        ├── variables.yml
-        ├── readme.md
-        ├── fixture.py
-        └── run
-```
-
-Lastly, create a new collection inside the workspace
-
-```sh
-athena create collection my-collection -w my-workspace
-```
-
-This will add a new collection to the collections directory.
-
-```sh
-.
-└── athena
-    ├── .athena
-    └── my-workspace
-        ├── collections
-        │   └── my-collection
-        │       ├── secrets.yml
-        │       ├── variables.yml
-        │       ├── fixture.py
-        │       ├── readme.md
-        │       └── run
-        ├── secrets.yml
-        ├── variables.yml
-        ├── readme.md
-        └── run
-```
-
-## Creating tests
-
-To create a test case, add a python file in the `run` folder of a collection
-
-```sh
-vim athena/my-workspace/collections/my-collection/run/hello.py
-```
-
-In order for athena to run the method, there must be a function named `run` that takes a single argument.
+In order for athena to run the test, there must be a function named `run` that takes a single argument.
 athena will call this function, with an `Athena` instance as the argument.
 
 ```python
@@ -113,7 +97,7 @@ def run(athena: Athena):
     ...
 ```
 
-## Sending requests
+## sending requests
 
 The injected `Athena` instance provides methods to create and send requests. Start by creating a new `Client`.
 
@@ -133,7 +117,7 @@ def run(athena: Athena):
 
 ```
 
-The client can be used to send api requests. The requets themselves can also be configured with a builder.
+The client provides method to send restful requests. the requests themselves can also be configured with a builder.
 
 ```python
 def run(athena: Athena):
@@ -164,75 +148,18 @@ def run(athena: Athena):
     print(f"request time: {trace.elapsed}")
 ```
 
-## Running tests
+## running tests
 
-athena can search the directory for modules to execute. Use `athena run` to start, and provide an argument of the module to run.
-This can be a path to the module or to a directory along the module hierarchy. In the latter case, athena will run all the modules
-it can find inside that directory.
+athena accepts one or more arguments for modules to run. if an argument points to an unrunnable module (not a python file, path to a directory, etc), then it is silently ignored. this allows the usage of glob patterns to run several tests at once.
 
 ```sh
 # run all the modules inside the api directory
-athena run /path/to/athena/my-workspace/collections/my-collection/run/api
+athena run /path/to/athena/api/*
 ```
 
-### Module keys
+# additional features
 
-Any command that takes a module path can also take an argument of the form `workspace:collection:module`, and run all the modules that match.
-This key will be computed relative to the current working directory, and allows for more precision in determining which modules to run.
-
-```sh
-# run all modules in "my-workspace" named "hello.py"
-athena run "my-workspace:*:hello"
-```
-
-For any module in a collection `run` folder, the directory path relative to the `run` folder will make up the module name. 
-For example, given the following files:
-
-```
-athena/my-workspace/collections/my-collection/run/red.py
-athena/my-workspace/collections/my-collection/run/green.py
-athena/my-workspace/collections/my-collection/run/toast/blue.py
-athena/my-workspace/collections/my-second-collection/run/red.py
-```
-
-You would have the following module keys:
-
-```
-my-workspace:my-collection:red
-my-workspace:my-collection:green
-my-workspace:my-collection:toast.blue
-my-workspace:my-second-collection:red
-```
-
-The workspace and collection parts can contain wild cards. A single period (`.`) in either field will use the current directory.
-A single asterisk (`*`) will use all directories.
-
-```sh
-# run all modules in "my-workspace" named "hello.py"
-athena run "my-workspace:*:hello"
-```
-
-For the module name, asterisks can be used to denote "any module/directory", and double asterisks (`**`) can be used to denote any subdirectory.
-
-```sh
-# runs all files
-athena run "*:*:**"
-
-# runs red.py and green.py
-athena run "*:*:*"
-
-# runs only blue.py
-athena run "*:*:*.*"
-athena run "*:*:toast.*"
-athena run "*:*:**blue"
-
-# run all modules in the collection of the current directory
-athena run ".:.:**"
-```
-
-Internally, asterisks are compiled into the regular expression `[^.]+` and double asterisks are compiled into `.+`.
-
-## Environments, Variables and Secrets
+## environments, variables and secrets
 
 athena will provide variables and secrets to the running method through the `Athena` object.
 
@@ -243,52 +170,58 @@ def run(athena: Athena):
     password = athena.secret("password")
 ```
 
-This will reference the `variables.yml` and `secrets.yml` environment files. For a given module,
-athena will first check in the collection variables, and if the variable or secret is not present there,
-it will check in the workspace variables. The structure for the secret and variable files are the same,
-with the exception of a different root element. For each entry in the file, a value is given for each
-environment, as well as a default for when the environment is not listed or not given.
+This will reference the `variables.yml` and `secrets.yml` environment files. athena will select all variable or secret files that can be found in any ancestor directory of the module being run. For example, if we are running the following module:
+
+```
+./athena/foo/hello.py
+```
+
+then athena will look for variables in the following locations:
+
+```
+./athena/variables.yml
+./athena/foo/variables.yml
+```
+
+The format of both the secrets and variables files is a key for the value, and then a key for each environment the value applies to.
 
 **`secrets.yml`**
 
 ```yml
-secrets:
-  password:
-    __default__: "foo"
-    staging: "foo" 
-    production: "InwVAQuKrm0rUHfd"
+password:
+  __default__: "foo"
+  staging: "foo" 
+  production: "InwVAQuKrm0rUHfd"
 ```
 
 **`variables.yml`**
 
 ```yml
-variables:
-  username:
-    __default__: "bar"
-    staging: "bar" 
-    production: "athena"
+username:
+  __default__: "bar"
+  staging: "bar" 
+  production: "athena"
 ```
 
-By default, athena will use the `__default__` environment, but you can specify one in the `run` command
-
+By default, athena will use the `__default__` environment, but you can specify one in the `run` command.
 
 ```sh
 athena run "my-workspace:*:hello.py" --environment staging
 ```
 
-You can see which environments are referenced by 1 or more variables with the `status` command,
-which takes a module mask argument as well.
+You can also set the default environment.
 
 ```sh
-athena status environments "my-workspace:*:hello.py"
+athena set environment staging
 ```
 
-## Cache
+## cache
 
 athena also provides a basic key (`str`) - value (`str`, `int`, `float`, `bool`) cache. The cache is global and is persisted between runs.
 
 ```python
-from athena.client import Athena, time
+import time
+from athena.client import Athena
 
 def refresh_token(athena: Athena):
     if "token" not in athena.cache \
@@ -304,18 +237,11 @@ def run(athena: Athena):
 ```
 
 
-## Fixtures
+## fixtures
 
-athena supports adding fixtures at the workspace and collection level. In both of these directories is a file called `fixture.py` with the following (default) contents:
+athena supports adding fixtures using the same heirarchy strategy as the variables and secrets files. any file names `fixture.py` in a directory that is a direct ancestor of the current module will be loaded.
 
-```python
-from athena.client import Fixture
-
-def fixture(fixture: Fixture):
-    pass
-```
-
-athena will call the fixture method on `Athena.fixture` before running any modules. With this you can do configuration at the collection / workspace level before running a module.
+athena will call the fixture method on `Athena.fixture` before running any modules.
 
 `fixture.py`
 
@@ -345,7 +271,22 @@ def run(athena: Athena):
     client.post("path/to/resource")
 ```
 
-## Hooks
+In addition to the `fixture` property, athena also provides a special `infix` property, short for "into fixture".
+This property is used similarly to `fixture`, but it can only be called with fixtures that are functions. This field
+will inject the `Athena` instance into the fixture function as the first argument, and pass along the rest, making for
+a useful shorthand.
+
+`my_module.py`
+
+```python
+from athena.client import Athena
+
+def run(athena: Athena):
+    client = athena.infix.client()
+    client.post("path/to/resource")
+```
+
+## hooks
 
 athena can run pre-request and post-request hooks at the client or request level.
 
@@ -356,7 +297,7 @@ def run(athena: Athena):
         .hook.after(lambda r: print("I just received a response with the reason:", r.reason))))
 ```
 
-## Async Requests
+## async requests
 
 athena can run modules asynchronously, and can send requests asynchronously with `aiohttp`. To run in async mode, simply change the
 `run` function to async. All of the client methods have asynchronous counterparts, and can be run concurrently.
@@ -368,26 +309,67 @@ import asyncio
 async def run(athena: Athena):
     client = athena.client()
     tasks =  [client.get_async("https://google.com") for _ in range(10)]
-    await aysncio.gather(*tasks)
+    await asyncio.gather(*tasks)
 ```
 
-## Utilities
 
-### Executable
 
-**status**
+## jsonification
 
-You can check the available modules and environments with the `status` command
+athena provides a `jsonify` tool to json-dump athena objects, like `AthenaTrace`.
+Apart from adding an encoder for athena objects, this method will pass-through arguments
+like `indent` to `json.dumps`.
+
+```python
+from athena.client import Athena, jsonify
+
+def run(athena: Athena):
+    athena.client().get("http://haondt.com")
+    traces = athena.traces()
+    print(jsonify(traces, indent=4))
+```
+
+
+## context
+
+the `context` property provides information about the runtime environment of the module.
+
+```python
+from athena.client import Athena
+
+def run(athena: Athena):
+    print("current workspace:", athena.context.workspace)
+    print("current environment:", athena.context.environment)
+```
+
+## assertions
+
+athena comes bundled with a thin wrapper around the `assert` statement called `athert`. This wrapper provides
+more informative error messages and a fluent syntax.
+
+```python
+from athena.client import Athena, Client
+from athena.test import athert
+
+def run(athena: Athena):
+    client: Client = athena.infix.build_client()
+    response = client.get("path/to/resource")
+
+    athert(response.status_code).equals(200)
+```
 
 ```sh
-# check for all modules and environments
-athena status
-
-# filter to current collection
-athena status ".:.:**"
+$ athena run ./my_module
+my_module: failed
+    │ File "/home/haondt/projects/my-project/athena/my-workspace/collections/my-collection/run/my_module.py", line 8, in run
+    │     athert(response.status_code).equals(200)
+    │
+    │ AssertionError: expected `200` but found `404`
 ```
 
-**import/export**
+# utilities
+
+## import/export
 
 You can import and export secrets and variables with the `import` and `export` commands.
 `export` will print to stdout and `import` will either take the values as an argument or take
@@ -400,30 +382,32 @@ athena export secrets > secrets.json
 athena import secrets -f secrets.json
 ```
 
-**responses**
+## responses
 
-The `responses` command will run a module key and pretty-print information about the responses of
+The `responses` command will run one or more modules and pretty-print information about the responses of
 all the requests that were sent during the execution. 
 
 ```
-$ athena responses "*:*:**get_planets"
+$ athena responses get_planets.py
 
-my-workspace:my-collection:api.get_planets •
+get_planets •
 │ execution
-│ │ environment: None
+│ │ environment: __default__
+│ │ Warning: execution failed to complete successfully
+│ │ AssertionError: expected `200` but found `401`
 │ 
 │ timings
-│ │ api/planets     ···················· 2.02ms
-│ │ planet/Venus                         ················ 1.63ms
+│ │ api/planets     ····················· 2.59ms
+│ │ planet/Venus                           ·············· 1.64ms
 │ 
 │ traces
 │ │ api/planets
 │ │ │ │ GET http://localhost:5000/api/planets
-│ │ │ │ 401 UNAUTHORIZED 2.02ms
+│ │ │ │ 401 UNAUTHORIZED 2.59ms
 │ │ │ 
 │ │ │ headers
-│ │ │ │ Server         | Werkzeug/3.0.1 Python/3.11.2
-│ │ │ │ Date           | Sun, 05 Nov 2023 23:13:12 GMT
+│ │ │ │ Server         | Werkzeug/3.0.0 Python/3.10.12
+│ │ │ │ Date           | Fri, 14 Jun 2024 11:09:26 GMT
 │ │ │ │ Content-Type   | application/json
 │ │ │ │ Content-Length | 39
 │ │ │ │ Connection     | close
@@ -437,11 +421,11 @@ my-workspace:my-collection:api.get_planets •
 │ │ 
 │ │ planet/Venus
 │ │ │ │ GET http://localhost:5000/planet/Venus
-│ │ │ │ 200 OK 1.63ms
+│ │ │ │ 200 OK 1.64ms
 │ │ │ 
 │ │ │ headers
-│ │ │ │ Server         | Werkzeug/3.0.1 Python/3.11.2
-│ │ │ │ Date           | Sun, 05 Nov 2023 23:13:12 GMT
+│ │ │ │ Server         | Werkzeug/3.0.0 Python/3.10.12
+│ │ │ │ Date           | Fri, 14 Jun 2024 11:09:26 GMT
 │ │ │ │ Content-Type   | text/html; charset=utf-8
 │ │ │ │ Content-Length | 160
 │ │ │ │ Connection     | close
@@ -462,104 +446,20 @@ my-workspace:my-collection:api.get_planets •
 │ 
 ```
 
-**watch**
+## watch
 
-Watches the athena directory for file writes. Any written modules that match the given path
-key will be executed with the `responses` command.
+Watches the given directory for file writes. Any written modules inside the directory will be executed with the `responses` command.
 
 ```shell
 athena watch .
 ```
 
-### Imported
-
-**jsonify**
-
-athena provides a `jsonify` tool to json-dump athena objects, like `AthenaTrace`.
-Apart from adding an encoder for athena objects, this method will pass-through arguments
-like `indent` to `json.dumps`.
-
-```python
-from athena.client import Athena, jsonify
-
-def run(athena: Athena):
-    athena.client().get("http://haondt.com")
-    traces = athena.traces()
-    print(jsonify(traces, indent=4))
-```
-
-**infix**
-
-In addition to the `fixture` property, athena also provides a special `infix` property, short for "into fixture".
-This property is used similarly to `fixture`, but it can only be called with fixtures that are functions. This field
-will inject the `Athena` instance into the fixture function as the first argument, and pass along the rest, making for
-a useful shorthand.
-
-`fixture.py`
-
-```python
-from athena.client import Fixture, Athena
-
-def fixture(fixture: Fixture):
-    def build_client(athena: Athena, flavor: str):
-        ...
-    fixture.client = build_client
-```
-
-`my_module.py`
-
-```python
-from athena.client import Athena
-
-def run(athena: Athena):
-    # these are equivalent function calls
-    client = athena.fixture.client(athena, "vanilla")
-    client = athena.infix.client("vanilla")
-```
-
-**context**
-
-the `context` property provides information about the runtime environment of the module.
-
-```python
-from athena.client import Athena
-
-def run(athena: Athena):
-    print("current workspace:", athena.context.workspace)
-    print("current environment:", athena.context.environment)
-```
-
-**assertions**
-
-athena comes bundled with a thin wrapper around the `assert` statement called `athert`. This wrapper provides
-more informative error messages and a fluent syntax.
-
-```python
-from athena.client import Athena, Client
-from athena.test import athert
-
-def run(athena: Athena):
-    client: Client = athena.infix.build_client()
-    response = client.get("path/to/resource")
-
-    athert(response.status_code).equals(200)
-```
-
-```sh
-$ athena run "*:*:my_module"
-my-workspace:my-collection:my_module: failed
-    │ File "/home/haondt/projects/my-project/athena/my-workspace/collections/my-collection/run/my_module.py", line 8, in run
-    │     athert(response.status_code).equals(200)
-    │
-    │ AssertionError: expected `200` but found `404`
-```
-
-# Development
+# development
 
 To get started, set up a venv
 
 ```sh
-python3 -m venv venv
+python3.11 -m venv venv
 . venv/bin/activate
 ```
 
