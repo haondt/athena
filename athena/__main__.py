@@ -1,6 +1,7 @@
 import asyncio
 import sys, os
 import click
+import logging
 from typing import Callable
 
 from .resource import DEFAULT_ENVIRONMENT_KEY, create_sample_resource_file
@@ -16,6 +17,10 @@ from .format import colors, color
 from . import display
 from .json import jsonify, dejsonify
 from .watch import watch as athena_watch
+
+LOG_TEMPLATE = '[%(levelname)s] %(name)s: %(message)s'
+logging.basicConfig(format=LOG_TEMPLATE, level=100)
+_logger = logging.getLogger(__name__)
 
 @click.group()
 @click.version_option()
@@ -116,7 +121,20 @@ def run_modules_and(
         loop: asyncio.AbstractEventLoop | None = None
         ):
     paths = [os.path.abspath(p) for p in paths]
-    paths = [p for p in paths if not file.should_ignore_file(p)]
+    if (logging.INFO >= logging.root.level):
+        ignored_paths = []
+        selected_paths = []
+        for path in paths:
+            if file.should_ignore_file(path):
+                ignored_paths.append(path)
+            else:
+                selected_paths.append(path)
+        paths_string = '\n'.join(ignored_paths)
+        _logger.info(f'ignoring the following paths:\n{paths_string}')
+        paths = selected_paths
+    else:
+        paths = [p for p in paths if not file.should_ignore_file(p)]
+
     module_paths_by_root = {}
     for path in paths:
         if not os.path.exists(path):
@@ -140,13 +158,17 @@ def run_modules_and(
 
 @athena.command()
 @click.argument('paths', type=str, nargs=-1)
+@click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
 @click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
-def run(paths: list[str], environment: str | None):
+def run(paths: list[str], environment: str | None, verbose: bool):
     """
     Run one or more modules and print the output.
     
     PATH - Path to module(s) to run.
     """
+    if (verbose):
+        logging.root.setLevel(logging.INFO)
+
     run_modules_and(
             paths,
             force_environment=environment,

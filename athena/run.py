@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, logging
 from typing import Any, Dict, List, Callable
 
 from .format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
@@ -9,6 +9,8 @@ from .exceptions import AthenaException
 from .resource import ResourceLoader
 import importlib, inspect
 import aiohttp
+
+_logger = logging.getLogger(__name__)
 
 class ExecutionTrace:
     def __init__(self, module_name: str):
