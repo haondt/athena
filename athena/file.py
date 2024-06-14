@@ -17,7 +17,7 @@ def init(base_dir: str):
     with open(os.path.join(path, ".athena"), "w") as f:
         pass
     with open(os.path.join(path, ".gitignore"), "w") as f:
-        f.write("__pycache__/\nsecrets.yml\n.cache\n")
+        f.write("__pycache__/\nsecrets.yml\n.cache\n.history\n")
     return path
 
 def find_root(current_dir: str):

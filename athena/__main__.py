@@ -9,6 +9,7 @@ from .resource import DEFAULT_ENVIRONMENT_KEY, create_sample_resource_file
 from .run import ExecutionTrace
 
 from . import file
+from . import history
 from . import state as athena_state
 from . import run as athena_run
 from . import status as athena_status
@@ -73,6 +74,16 @@ def get_environment(path: str | None):
     environment = internal_get_environment(path)
     click.echo(environment)
 
+@get.command(name='history')
+@click.option('-p', '--path', type=str, help="path to athena directory", default=None)
+def get_history(path: str | None):
+    """
+    Gets the default environment
+    """
+    path = path or os.getcwd()
+    root = file.find_root(path)
+    click.echo(history.get(root))
+
 @athena.group(name='set')
 def set_command():
     """
@@ -112,6 +123,16 @@ def clear_environment(path: str | None):
     state = athena_state.load(root)
     state.environment = DEFAULT_ENVIRONMENT_KEY
     athena_state.save(root, state)
+
+@clear.command(name='history')
+@click.option('-p', '--path', type=str, help="path to athena directory", default=None)
+def clear_history(path: str | None):
+    """
+    Empties the history file
+    """
+    path = path or os.getcwd()
+    root = file.find_root(path)
+    history.clear(root)
 
 def run_modules_and(
         paths: list[str],

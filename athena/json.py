@@ -52,11 +52,11 @@ class AthenaJSONDecoder(JSONDecoder):
                 return instance
         return dct
             
-def jsonify(item: Any, reversible=False):
+def jsonify(item: Any, reversible=False, indent: int | None = None):
     try:
         if reversible:
-            return dumps(item, cls=AthenaReversibleJSONEncoder)
-        return dumps(item, cls=AthenaJSONEncoder)
+            return dumps(item, cls=AthenaReversibleJSONEncoder, indent=indent)
+        return dumps(item, cls=AthenaJSONEncoder, indent=indent)
     except Exception as e:
         raise AthenaException(f"Error while dumping json: {e}")
 

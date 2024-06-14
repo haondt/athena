@@ -27,6 +27,7 @@ athena is a file-based rest api client.
   - [import/export](#importexport)
   - [responses](#responses)
   - [watch](#watch)
+  - [history](#history)
 - [development](#development)
 
 # motivation
@@ -303,7 +304,7 @@ athena can run modules asynchronously, and can send requests asynchronously with
 `run` function to async. All of the client methods have asynchronous counterparts, and can be run concurrently.
 
 ```python
-from athena.client import Athena, Client, jsonify
+from athena.client import Athena, Client
 import asyncio
 
 async def run(athena: Athena):
@@ -452,6 +453,20 @@ Watches the given directory for file writes. Any written modules inside the dire
 
 ```shell
 athena watch .
+```
+
+## history
+
+athena maintains a log of execution history in the `.history` file. this history can be viewed with
+
+```sh
+athena get history
+```
+
+and cleared with
+
+```sh
+athena clear history
 ```
 
 # development

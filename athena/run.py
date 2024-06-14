@@ -1,6 +1,10 @@
 import os, sys, logging
 from typing import Any, Dict, List, Callable
 
+from . import history
+
+from .json import jsonify, serializeable
+
 from .format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
 from .trace import AthenaTrace, LinkedRequest, LinkedResponse
 from . import cache, file
@@ -11,6 +15,20 @@ import importlib, inspect
 import aiohttp
 
 _logger = logging.getLogger(__name__)
+
+@serializeable
+class SerializableExecutionTrace:
+    def __init__(self):
+        self.success: bool = False
+        self.athena_traces: List[AthenaTrace] = []
+        self.error: str | None = None
+        self.result: str | None = None
+        self.filename: str | None  = None
+        self.module_name: str = "None"
+        self.environment: str | None = None
+
+    def jsonify(self):
+        return jsonify(self, indent=4)
 
 class ExecutionTrace:
     def __init__(self, module_name: str):
@@ -46,6 +64,17 @@ class ExecutionTrace:
         else:
             return f"{color('passed', colors.green)}"
 
+    def as_serializable(self):
+        output = SerializableExecutionTrace()
+        output.success = self.success
+        output.athena_traces = self.athena_traces
+        output.error = short_format_error(self.error) if self.error is not None else None
+        output.result = str(self.result) if self.result is not None else None
+        output.filename = self.filename
+        output.module_name = self.module_name
+        output.environment = self.environment
+        return output
+
 async def run_modules(root, modules: list[str], environment: str | None=None, module_completed_callback: Callable[[str, ExecutionTrace], None] | None=None) -> Dict[str, ExecutionTrace]:
     sys.path[0] = ''
     athena_cache = cache.load(root)
@@ -54,6 +83,7 @@ async def run_modules(root, modules: list[str], environment: str | None=None, mo
         for path in modules:
             module_name = os.path.basename(path)[:-3]
             results[path] = await _run_module(root, module_name, path, athena_cache, environment)
+            history.push(root, lambda: results[path].as_serializable().jsonify())
             if module_completed_callback is not None:
                 module_completed_callback(module_name, results[path])
     finally:
