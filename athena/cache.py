@@ -23,3 +23,7 @@ def save(root: str, state: Cache):
     cache_file_path = get_cache_file_path(root)
     with open(cache_file_path, "w") as f:
         f.write(jsonify(state, reversible=True))
+
+def clear(root: str):
+    save(root, Cache())
+

@@ -35,13 +35,15 @@ class AthenaTrace:
         start: float, 
         end: float,
         request_text: str | None=None,
-        response_text: str | None=None
+        response_text: str | None=None,
+        warnings: list[str] | None=None
     ):
 
         self.id = id
         self.response = ResponseTrace(response, response_text)
         self.request = RequestTrace(request, request_text)
         self.name = name
+        self.warnings = warnings or []
 
         # timestamps are in seconds
         self.elapsed = str(timedelta(seconds=end-start))

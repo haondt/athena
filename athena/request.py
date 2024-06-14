@@ -21,6 +21,7 @@ class AthenaRequest:
         self.json: dict | list | str | None = None
         self.params: Any = {}
         self.cookies: Any = None
+        self.verify_ssl: bool | None = None
 
         self._before_hooks: list[Callable[[AthenaRequest], None]] = []
         self._after_hooks: list[Callable[[ResponseTrace], None]] = []
@@ -53,6 +54,7 @@ class AthenaRequest:
             'params': self.params,
             'auth': self.auth,
             'cookies': self.cookies,
+            'ssl': self.verify_ssl
         }
         return AioHttpRequestContainer(
             self.method.upper(),
@@ -132,6 +134,12 @@ class RequestBuilder:
         self._build_steps.append(set_base_url)
         return self
 
+    def verify_ssl(self, verify_ssl: bool) -> RequestBuilder:
+        def set_verify_ssl(rq: AthenaRequest):
+            rq.verify_ssl = verify_ssl
+            return rq
+        self._build_steps.append(set_verify_ssl)
+        return self
 
     def header(self, header_key, header_value) -> RequestBuilder:
         def add_header(rq: AthenaRequest):
@@ -190,7 +198,7 @@ class Client:
         request = athena_request._to_requests_request()
 
         start = time()
-        response = self.__session.send(request, allow_redirects=False, timeout=30)
+        response = self.__session.send(request, allow_redirects=False, timeout=30, verify=athena_request.verify_ssl)
         end = time()
 
         trace_name = ""
@@ -198,6 +206,9 @@ class Client:
             trace_name += self.name + "+"
         trace_name += athena_request.url
         trace = AthenaTrace(trace_id, trace_name, response.request, response, start, end)
+        
+        if(athena_request.verify_ssl == False):
+            trace.warnings.append("request was executed with ssl verification disabled")
 
         self.__post_hook(trace)
         athena_request._run_after_hooks(trace.response)
@@ -231,6 +242,9 @@ class Client:
             request = response.athena_get_request()
             assert request is not None
             trace = AthenaTrace(trace_id, trace_name, request, response, start, end, response_text=await response.text())
+
+        if(athena_request.verify_ssl == False):
+            trace.warnings.append("request was executed with ssl verification disabled")
 
         async with self.__async_lock:
             self.__post_hook(trace)

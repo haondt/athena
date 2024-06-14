@@ -9,6 +9,7 @@ from .resource import DEFAULT_ENVIRONMENT_KEY, create_sample_resource_file
 from .run import ExecutionTrace
 
 from . import file
+from . import cache
 from . import history
 from . import state as athena_state
 from . import run as athena_run
@@ -134,6 +135,16 @@ def clear_history(path: str | None):
     root = file.find_root(path)
     history.clear(root)
 
+@clear.command(name='cache')
+@click.option('-p', '--path', type=str, help="path to athena directory", default=None)
+def clear_cache(path: str | None):
+    """
+    Empties the cache file
+    """
+    path = path or os.getcwd()
+    root = file.find_root(path)
+    cache.clear(root)
+
 def run_modules_and(
         paths: list[str],
         force_environment: str | None=None,
@@ -218,7 +229,7 @@ def watch(path: str | None, environment: str | None, verbose: bool):
         except Exception as e:
             sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
 
-    click.echo(f'Starting to watch `{path}`. Press ^C to stop.')
+    click.echo(f'Starting to watch `{root}`. Press ^C to stop.')
     athena_watch(root, 0.1, on_change)
 
 @athena.command()

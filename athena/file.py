@@ -22,6 +22,7 @@ def init(base_dir: str):
 
 def find_root(current_dir: str):
     current_dir = os.path.normpath(current_dir)
+    current_dir = os.path.abspath(current_dir)
 
     max_depth = 20
     prev_dir = None

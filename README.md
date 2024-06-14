@@ -237,6 +237,12 @@ def run(athena: Athena):
     client.get("path/to/resource")
 ```
 
+the cache can be manually cleared
+
+```sh
+athena clear cache
+```
+
 
 ## fixtures
 

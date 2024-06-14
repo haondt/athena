@@ -111,6 +111,9 @@ def responses(trace: ExecutionTrace):
                 ])
             entry.append(("", [meta_info]))
 
+            if len(athena_trace.warnings) > 0:
+                entry.append((color("warnings", colors.underline, colors.yellow, colors.bold), athena_trace.warnings))
+
             max_header_key_len = min(max([len(i) for i in athena_trace.response.headers.keys()]), output_width // 2 - 3)
             max_header_value_len =  output_width - max_header_key_len
             header_info = []
