@@ -3,6 +3,6 @@ from athena.test import athert
 
 def run(athena: Athena):
     client: Client = athena.infix.build_api_client()
-    response = client.get("api/planet/Venus")
+    response = client.get("planets/Venus")
 
     athert(response.status_code).equals(200)

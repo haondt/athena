@@ -54,9 +54,6 @@ def __search_for_python_files(root: str, current_name=""):
     return contents
 
 
-def search_modules(path: str):
-    files = glob.glob(path)
-    return [f for f in files if not should_ignore_file(f)]
 
 def search_module_half_ancestors(root: str, module_path: str, ancestor_name: str):
     output = []
@@ -68,7 +65,7 @@ def search_module_half_ancestors(root: str, module_path: str, ancestor_name: str
             output.append(ancestor_path)
 
     check_and_add_ancestor('')
-    module_relpath = os.path.relpath(root, module_path)
+    module_relpath = os.path.relpath(module_path, root)
     relpath = ''
     for relpart in module_relpath.split(os.path.sep):
         if relpart.endswith('.py'):
@@ -79,14 +76,16 @@ def search_module_half_ancestors(root: str, module_path: str, ancestor_name: str
 
 def should_ignore_file(path: str):
     if not path.endswith('.py'):
-        return False
+        return True
+    if path.endswith('fixture.py'):
+        return True
     parts = path.split(os.pathsep)
     for part in parts:
         if part.startswith('__'):
-            return False
+            return True
         if part.startswith('.'):
-            return False
-    return True
+            return True
+    return False
 
 def import_yaml(file) -> object:
      return yaml.load(file, Loader=yaml.FullLoader)

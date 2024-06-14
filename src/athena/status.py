@@ -27,10 +27,10 @@ def search_environments(root: str, module_paths: list[str]):
 
 def collect_secrets(root: str) -> AggregatedResource:
     loader = ResourceLoader()
-    return loader.load_aggregated_secrets(root, root)
+    return loader.load_all_secrets(root)
 def collect_variables(root: str) -> AggregatedResource:
     loader = ResourceLoader()
-    return loader.load_aggregated_variables(root, root)
+    return loader.load_all_variables(root)
 
 class DryRunApplyResult:
     def __init__(self, new_directories: list[str], overwritten_values: list[str], new_values: list[str]):

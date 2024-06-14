@@ -69,8 +69,6 @@ async def _run_module(module_root, module_name, module_path, athena_cache: cache
     if not module_path.endswith(".py"):
         raise AthenaException(f"not a python module {module_path}")
 
-    module_relpath = os.path.relpath(module_root, module_path)
-
     module_dir = os.path.dirname(module_path)
 
     context = Context(

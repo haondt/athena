@@ -3,7 +3,7 @@ import sys, os
 import click
 from typing import Callable
 
-from .resource import DEFAULT_ENVIRONMENT_KEY
+from .resource import DEFAULT_ENVIRONMENT_KEY, create_sample_resource_file
 
 from .run import ExecutionTrace
 
@@ -36,6 +36,14 @@ def init(path: str | None):
     root = file.init(path or os.getcwd())
     state = athena_state.init()
     athena_state.save(root, state)
+
+    create_sample_resource_file(os.path.join(root, 'variables.yml'), {
+        'my_variable': { '__default__': 'my value'}
+        })
+    create_sample_resource_file(os.path.join(root, 'secrets.yml'), {
+        'my_secret': { '__default__': 'my secret value'}
+        })
+
     click.echo(f'Created athena project at: `{root}`')
 
 @athena.group()
@@ -107,19 +115,19 @@ def run_modules_and(
         final_callback: Callable[[dict[str, ExecutionTrace]], None] | None=None,
         loop: asyncio.AbstractEventLoop | None = None
         ):
-    paths = [os.path.abspath(path) for path in paths]
-    modules_by_root = {}
+    paths = [os.path.abspath(p) for p in paths]
+    paths = [p for p in paths if not file.should_ignore_file(p)]
+    module_paths_by_root = {}
     for path in paths:
         if not os.path.exists(path):
             raise AthenaException(f"no such file or directory: {path}")
         root = file.find_root(path)
-        if root not in modules_by_root:
-            modules_by_root[root] = set()
-        for module in file.search_modules(path):
-            if module not in modules_by_root[root]:
-                modules_by_root[root].add(module)
+        if root not in module_paths_by_root:
+            module_paths_by_root[root] = set()
+        if path not in module_paths_by_root[root]:
+            module_paths_by_root[root].add(path)
 
-    for root, modules in modules_by_root.items():
+    for root, modules in module_paths_by_root.items():
         loop = loop or asyncio.get_event_loop()
         try:
             environment = force_environment or internal_get_environment(root)
@@ -155,18 +163,16 @@ def watch(path: str | None, environment: str | None):
     """
     path = path or os.getcwd()
     root = file.find_root(path)
-    module_paths = set(file.search_modules(path))
 
     def on_change(changed_path: str):
         try:
-            if changed_path in module_paths:
-                env = environment or internal_get_environment(path)
-                run_modules_and(changed_path, environment=env, module_callback=lambda _, result: click.echo(f"{display.responses(result)}"), loop=asyncio.new_event_loop())
-        except:
-            pass
+            if not file.should_ignore_file(changed_path):
+                run_modules_and([changed_path], force_environment=environment, module_callback=lambda _, result: click.echo(f"{display.responses(result)}"), loop=asyncio.new_event_loop())
+        except Exception as e:
+            sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
 
     click.echo(f'Starting to watch `{path}`. Press ^C to stop.')
-    athena_watch(root, on_change)
+    athena_watch(root, 0.1, on_change)
 
 @athena.command()
 @click.argument('path', type=str, required=False)
@@ -176,6 +182,7 @@ def status(path: str | None):
     
     PATH - Path to file or directory of modules to watch.
     """
+    raise AthenaException('Not implemeneted')
 
     path = path or os.getcwd()
     root = file.find_root(path)
@@ -327,19 +334,17 @@ def athena_import_variables(variable_data: str, variable_path: str | None):
     click.echo("Variables imported.")
 
 @athena.command()
-@click.argument('path', type=str)
+@click.argument('paths', type=str, nargs=-1)
 @click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
-def responses(path: str, environment: str | None):
+def responses(paths: list[str], environment: str | None):
     """
     Run one or more modules and print the response traces.
     
     PATH - Path to file or directory of modules to watch.
     """
-    path = path or os.getcwd()
-    environment = environment or internal_get_environment(path)
     run_modules_and(
-            path,
-            environment=environment,
+            paths,
+            force_environment=environment,
             module_callback=lambda _, result: click.echo(f"{display.responses(result)}"))
 
 def main():

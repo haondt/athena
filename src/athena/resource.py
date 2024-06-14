@@ -1,4 +1,4 @@
-import os
+import os, glob
 from typing import Tuple
 from . import file
 from .exceptions import AthenaException
@@ -8,6 +8,9 @@ DEFAULT_ENVIRONMENT_KEY = "__default__"
 _resource_value_type = str | int | float | bool | None
 _resource_type = dict[str, dict[str, _resource_value_type]]
 
+def create_sample_resource_file(path: str, data: _resource_type):
+    with open(path, 'w') as f:
+        f.write(file.export_yaml(data))
 
 def try_extract_value_from_resource(resource: _resource_type, name, environment: str | None) -> Tuple[bool, _resource_value_type]:
     if resource is not None and name in resource:
@@ -64,14 +67,15 @@ class ResourceLoader:
             first_resource = _merge_resources(first_resource, resource)
         return first_resource
 
-    def __load_and_aggregate_resources(self, root: str, module_path: str, filename: str) -> AggregatedResource:
+    def __load_and_aggregate_all_resources(self, root: str, filename: str) -> AggregatedResource:
         aggregated_resource = AggregatedResource()
-        file_paths = self.__search_module_half_ancestors(root, module_path, filename)
+        file_paths = glob.glob(os.path.join(root, '**', filename), recursive=True)
         for path in file_paths:
             for key, entry in self.__load_or_cache_file(path).items():
                 for environment, value in entry.items():
                     if value != {}:
-                        aggregated_resource.values[f'{path}.{key}.{environment}'] = value
+                        relpath = os.path.relpath(path, root)
+                        aggregated_resource.values[f'{relpath}.{key}.{environment}'] = value
         return aggregated_resource
 
     
@@ -81,11 +85,11 @@ class ResourceLoader:
     def load_variables(self, root: str, module_path: str):
         return self.__load_and_merge_resources(root, module_path, 'variables.yml')
 
-    def load_aggregated_secrets(self, root: str, module_path: str):
-        return self.__load_and_aggregate_resources(root, module_path, 'secrets.yml')
+    def load_all_secrets(self, root: str):
+        return self.__load_and_aggregate_all_resources(root, 'secrets.yml')
 
-    def load_aggregated_variables(self, root: str, module_path: str):
-        return self.__load_and_aggregate_resources(root, module_path, 'variables.yml')
+    def load_all_variables(self, root: str):
+        return self.__load_and_aggregate_all_resources(root, 'variables.yml')
 
     def __load_or_cache_file(self, file_path: str) -> _resource_type:
         if file_path in self.loaded_resources:
