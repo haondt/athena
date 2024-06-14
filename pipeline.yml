@@ -1,12 +1,12 @@
 tasks:
   - type: python-build
-    package: haondt-charon
+    package: haondt-athena
     registries:
       - testpypi
   - type: python-build
     auto:
       - source: push
-    package: haondt-charon
+    package: haondt-athena
     registries:
       - pypi
       - gitlab
