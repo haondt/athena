@@ -1,3 +1,4 @@
+from collections.abc import Coroutine
 import os, sys, logging
 from typing import Any, Dict, List, Callable
 
@@ -6,15 +7,15 @@ from . import history
 from .athena_json import jsonify, serializeable
 
 from .format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
-from .trace import AthenaTrace, LinkedRequest, LinkedResponse
+from .trace import AthenaTrace
 from . import cache, file
-from .client import Athena, Context
+from .client import Athena, Context, AthenaSession
 from .exceptions import AthenaException
 from .resource import ResourceLoader
 import importlib, inspect
-import aiohttp
 
 _logger = logging.getLogger(__name__)
+
 
 @serializeable
 class SerializableExecutionTrace:
@@ -75,14 +76,30 @@ class ExecutionTrace:
         output.environment = self.environment
         return output
 
-async def run_modules(root, modules: list[str], environment: str | None=None, module_completed_callback: Callable[[str, ExecutionTrace], None] | None=None) -> Dict[str, ExecutionTrace]:
+async def run_modules(
+    root, 
+    modules: list[str], 
+    environment: str | None=None,
+    module_completed_callback: Callable[[str, ExecutionTrace], None] | None=None,
+    session: AthenaSession | None = None) -> Dict[str, ExecutionTrace]:
+    if session is not None:
+        return await _run_modules(root, modules, environment, module_completed_callback, session)
+    async with AthenaSession() as session:
+        return await _run_modules(root, modules, environment, module_completed_callback, session)
+
+async def _run_modules(
+    root: str, 
+    modules: list[str], 
+    environment: str | None,
+    module_completed_callback: Callable[[str, ExecutionTrace], None] | None,
+    session: AthenaSession) -> Dict[str, ExecutionTrace]:
     sys.path[0] = ''
     athena_cache = cache.load(root)
     results = {}
     try:
         for path in modules:
             module_name = os.path.basename(path)[:-3]
-            results[path] = await _run_module(root, module_name, path, athena_cache, environment)
+            results[path] = await _run_module(root, module_name, path, session, athena_cache, environment)
             history.push(root, lambda: results[path].as_serializable().jsonify())
             if module_completed_callback is not None:
                 module_completed_callback(module_name, results[path])
@@ -90,7 +107,7 @@ async def run_modules(root, modules: list[str], environment: str | None=None, mo
         cache.save(root, athena_cache)
     return results
 
-async def _run_module(module_root, module_name, module_path, athena_cache: cache.Cache, environment=None) -> ExecutionTrace:
+async def _run_module(module_root, module_name, module_path, athena_session: AthenaSession, athena_cache: cache.Cache, environment=None) -> ExecutionTrace:
     trace = ExecutionTrace(module_name)
     trace.filename = module_path
     trace.environment = environment
@@ -109,31 +126,28 @@ async def _run_module(module_root, module_name, module_path, athena_cache: cache
         module_path,
         module_root,
     )
-    resource_loader = ResourceLoader()
 
-    async with aiohttp.ClientSession(request_class=LinkedRequest, response_class=LinkedResponse) as session:
-        athena_instance = Athena(
-            context,
-            resource_loader,
-            session,
-            athena_cache.data
-        )
+    athena_instance = Athena(
+        context,
+        athena_session,
+        athena_cache.data
+    )
 
-        try:
-            # load fixtures
-            for fixture_path in file.search_module_half_ancestors(module_root, module_path, 'fixture.py'):
-                success, _, trace.error = __try_execute_module(os.path.dirname(fixture_path), "fixture", "fixture", (athena_instance.fixture,))
-                if not success and trace.error is not None:
-                    trace.athena_traces = athena_instance.traces()
-                    return trace
+    try:
+        # load fixtures
+        for fixture_path in file.search_module_half_ancestors(module_root, module_path, 'fixture.py'):
+            success, _, trace.error = __try_execute_module(os.path.dirname(fixture_path), "fixture", "fixture", (athena_instance.fixture,))
+            if not success and trace.error is not None:
+                trace.athena_traces = athena_instance.traces()
+                return trace
 
-            # execute module
-            trace.success, trace.result, trace.error = await __try_execute_module_async(module_dir, module_name, "run", (athena_instance,))
-            trace.athena_traces = athena_instance.traces()
-            return trace
+        # execute module
+        trace.success, trace.result, trace.error = await __try_execute_module_async(module_dir, module_name, "run", (athena_instance,))
+        trace.athena_traces = athena_instance.traces()
+        return trace
 
-        finally:
-            athena_cache.data = athena_instance.cache._data
+    finally:
+        athena_cache.data = athena_instance.cache._data
 
 def __try_execute_module(module_dir, module_name, function_name, function_args):
     sys.path.insert(0, module_dir)

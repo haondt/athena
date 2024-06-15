@@ -1,13 +1,15 @@
 import aiohttp
+import requests
 
 from .resource import ResourceLoader, try_extract_value_from_resource, _resource_type
 from .exceptions import AthenaException
 from typing import Any, Callable, Protocol
-from .trace import AthenaTrace, ResponseTrace, RequestTrace
+from .trace import AthenaTrace, ResponseTrace, RequestTrace, LinkedRequest, LinkedResponse
 from .request import RequestBuilder, Client
 from .athena_json import AthenaJSONEncoder, serializeable
 from .fake import Fake
 from json import dumps as json_dumps
+from contextlib import AsyncExitStack
 import inspect
 
 class _Fixture:
@@ -100,18 +102,40 @@ class Context:
         self.module_path = module_path
         self.root_path = root_path
 
+class AthenaSession:
+    def __init__(self):
+        self.async_session = aiohttp.ClientSession(request_class=LinkedRequest, response_class=LinkedResponse)
+        self.session = requests.Session()
+        self.resource_loader = ResourceLoader()
+
+    def __enter__(self):
+        raise TypeError("Use async with instead")
+
+    def __exit__(self, *args):
+        # should never be called
+        pass
+
+    async def __aenter__(self):
+        async with AsyncExitStack() as stack:
+            await stack.enter_async_context(self.async_session)
+            stack.enter_context(self.session)
+            self._stack = stack.pop_all()
+        return self
+
+    async def __aexit__(self, *args):
+        await self._stack.__aexit__(*args)
+
+
 class Athena:
     def __init__(self,
         context: Context,
-        resource_loader: ResourceLoader,
-        async_session: aiohttp.ClientSession, 
+        session: AthenaSession,
         cache_values: dict
     ):
-        self.__resource_loader = resource_loader
         self.__history: list[AthenaTrace | str] = []
         self.__pending_requests = {}
         self.__history_lookup_cache = {}
-        self.__async_session = async_session
+        self.__session = session
         self.fixture: Fixture = _Fixture()
         self.infix: Fixture = _InjectFixture(self.fixture, self)
         self.cache = Cache(cache_values)
@@ -119,9 +143,9 @@ class Athena:
         self.fake = Fake()
 
     def variable(self, name: str) -> str:
-        return self.__resource(name, self.__resource_loader.load_variables, 'variable')
+        return self.__resource(name, self.__session.resource_loader.load_variables, 'variable')
     def secret(self, name: str) -> str:
-        return self.__resource(name, self.__resource_loader.load_secrets, 'secret')
+        return self.__resource(name, self.__session.resource_loader.load_secrets, 'secret')
 
     def __resource(self, name: str, resource_loading_method: Callable[[str, str], _resource_type], resource_type: str) -> str:
         root = self.context.root_path
@@ -147,7 +171,7 @@ class Athena:
         self.__history.append(trace)
 
     def client(self, base_build_request: Callable[[RequestBuilder], RequestBuilder] | None=None, name: str | None=None) -> Client:
-        return Client(self.__async_session, base_build_request, name, self.__client_pre_hook, self.__client_post_hook)
+        return Client(self.__session.session, self.__session.async_session, base_build_request, name, self.__client_pre_hook, self.__client_post_hook)
 
     def traces(self) -> list[AthenaTrace]:
         return [i for i in self.__history if isinstance(i, AthenaTrace)]

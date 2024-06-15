@@ -2,6 +2,7 @@ from threading import Timer
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent, FileCreatedEvent, FileSystemEvent, EVENT_TYPE_MODIFIED
 from typing import Callable
+import asyncio
 
 class Handler(FileSystemEventHandler):
     def __init__(self, settle: float, callback: Callable[[str], None]):
@@ -24,11 +25,22 @@ class Handler(FileSystemEventHandler):
     def _debounced_callback(self, path: str) -> None:
         self.callback(path)
 
+async def watch_async(path: str, settle: float, callback: Callable[[str], None]):
+    handler = Handler(settle, callback)
+    observer = Observer()
+    observer.schedule(handler, path=path, recursive=True, event_filter=[FileModifiedEvent, FileCreatedEvent])
+    observer.start()
+
+    try: 
+        await asyncio.Event().wait()
+    finally: 
+        observer.stop()
+        observer.join()
 
 def watch(path: str, settle: float, callback: Callable[[str], None]):
     handler = Handler(settle, callback)
     observer = Observer()
-    observer.schedule(handler, path=path, recursive=True, event_filter=[FileModifiedEvent, FileCreatedEvent] )
+    observer.schedule(handler, path=path, recursive=True, event_filter=[FileModifiedEvent, FileCreatedEvent])
     observer.start()
 
     try:

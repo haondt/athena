@@ -21,7 +21,8 @@ class AthenaRequest:
         self.json: dict | list | str | None = None
         self.params: Any = {}
         self.cookies: Any = None
-        self.verify_ssl: bool | None = None
+        self.verify_ssl: bool = True
+        self.allow_redirects: bool = True
 
         self._before_hooks: list[Callable[[AthenaRequest], None]] = []
         self._after_hooks: list[Callable[[ResponseTrace], None]] = []
@@ -54,7 +55,8 @@ class AthenaRequest:
             'params': self.params,
             'auth': self.auth,
             'cookies': self.cookies,
-            'ssl': self.verify_ssl
+            'ssl': self.verify_ssl,
+            'allow_redirects': self.allow_redirects
         }
         return AioHttpRequestContainer(
             self.method.upper(),
@@ -141,6 +143,13 @@ class RequestBuilder:
         self._build_steps.append(set_verify_ssl)
         return self
 
+    def allow_redirects(self, allow_redirects: bool) -> RequestBuilder:
+        def set_allow_redirects(rq: AthenaRequest):
+            rq.allow_redirects = allow_redirects
+            return rq
+        self._build_steps.append(set_allow_redirects)
+        return self
+
     def header(self, header_key, header_value) -> RequestBuilder:
         def add_header(rq: AthenaRequest):
             if header_key in  rq.headers:
@@ -165,6 +174,7 @@ class RequestBuilder:
 class Client:
     def __init__(
             self,
+            session: requests.Session,
             async_session: aiohttp.ClientSession,
             partial_request_builder: Callable[[RequestBuilder], RequestBuilder] | None=None,
             name=None,
@@ -175,7 +185,7 @@ class Client:
             self.__base_request_apply = partial_request_builder(RequestBuilder()).compile()
         else:
             self.__base_request_apply = lambda rq: rq
-        self.__session = requests.Session()
+        self.__session = session
         self.__async_session = async_session
         self.name = name or ""
         self.__pre_hook = pre_hook or (lambda _: None)
@@ -198,7 +208,7 @@ class Client:
         request = athena_request._to_requests_request()
 
         start = time()
-        response = self.__session.send(request, allow_redirects=False, timeout=30, verify=athena_request.verify_ssl)
+        response = self.__session.send(request, allow_redirects=athena_request.allow_redirects, timeout=30, verify=athena_request.verify_ssl)
         end = time()
 
         trace_name = ""
@@ -232,7 +242,7 @@ class Client:
         timeout = aiohttp.ClientTimeout(total=30)
 
         start = time()
-        async with self.__async_session.request(request.method, request.url, allow_redirects=False, timeout=timeout, **request.kwargs) as response:
+        async with self.__async_session.request(request.method, request.url, timeout=timeout, **request.kwargs) as response:
             end = time()
             trace_name = ""
             if self.name is not None and len(self.name) > 0:

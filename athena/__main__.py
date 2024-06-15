@@ -4,6 +4,8 @@ import click
 import logging
 from typing import Callable
 
+from .client import AthenaSession
+
 from .resource import DEFAULT_ENVIRONMENT_KEY, create_sample_resource_file
 
 from .run import ExecutionTrace
@@ -18,7 +20,7 @@ from .exceptions import AthenaException
 from .format import colors, color
 from . import display
 from .athena_json import jsonify, dejsonify
-from .watch import watch as athena_watch
+from .watch import watch_async as athena_watch_async
 
 LOG_TEMPLATE = '[%(levelname)s] %(name)s: %(message)s'
 logging.basicConfig(format=LOG_TEMPLATE, level=100)
@@ -150,7 +152,7 @@ def run_modules_and(
         force_environment: str | None=None,
         module_callback: Callable[[str, ExecutionTrace], None] | None=None,
         final_callback: Callable[[dict[str, ExecutionTrace]], None] | None=None,
-        loop: asyncio.AbstractEventLoop | None = None
+        loop: asyncio.AbstractEventLoop | None = None,
         ):
     paths = [os.path.abspath(p) for p in paths]
     if (logging.INFO >= logging.root.level):
@@ -222,15 +224,28 @@ def watch(path: str | None, environment: str | None, verbose: bool):
     path = path or os.getcwd()
     root = file.find_root(path)
 
-    def on_change(changed_path: str):
-        try:
-            if not file.should_ignore_file(changed_path):
-                run_modules_and([changed_path], force_environment=environment, module_callback=lambda _, result: click.echo(f"{display.responses(result)}"), loop=asyncio.new_event_loop())
-        except Exception as e:
-            sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
+    def module_callback(module_name, result):
+        click.echo(f"{display.responses(result)}")
 
-    click.echo(f'Starting to watch `{root}`. Press ^C to stop.')
-    athena_watch(root, 0.1, on_change)
+    async def on_change_async(changed_path: str, session: AthenaSession):
+        env = environment or internal_get_environment(root)
+        if file.should_ignore_file(changed_path):
+            return
+        await athena_run.run_modules(root, [changed_path], env, module_callback, session)
+
+    async def inner():
+        async with AthenaSession() as session:
+            # retrieve the loop from the main thread
+            loop = asyncio.get_event_loop()
+            def on_change(changed_path: str):
+                try:
+                    asyncio.run_coroutine_threadsafe(on_change_async(changed_path, session), loop).result()
+                except Exception as e:
+                    sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
+            click.echo(f'Starting to watch `{root}`. Press ^C to stop.')
+            await athena_watch_async(root, 0.1, on_change)
+
+    asyncio.run(inner())
 
 @athena.command()
 @click.argument('path', type=str, required=False)
