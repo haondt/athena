@@ -172,6 +172,11 @@ class RequestBuilder:
         return request
 
 class Client:
+    """Client class for making http requests
+
+    Attributes:
+        name (str): Name identifier for client instance
+    """
     def __init__(
             self,
             session: requests.Session,
@@ -181,6 +186,7 @@ class Client:
             pre_hook: Callable[[str], None] | None=None,
             post_hook: Callable[[AthenaTrace], None] | None=None
         ):
+
         if partial_request_builder is not None:
             self.__base_request_apply = partial_request_builder(RequestBuilder()).compile()
         else:
@@ -192,11 +198,23 @@ class Client:
         self.__post_hook = post_hook or (lambda _: None)
         self.__async_lock = asyncio.Lock()
 
-    def generate_trace_id(self):
+    def _generate_trace_id(self):
         return str(uuid.uuid4())
 
     def send(self, method, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
-        trace_id = self.generate_trace_id()
+        """
+        Sends a synchronous HTTP request.
+
+        Args:
+            method (str): HTTP method ('GET'/'POST'/'PUT'/'DELETE').
+            url (str): URL endpoint for the request
+            build_request (Callable[[RequestBuilder], RequestBuilder], optional):
+                Optional function to build or modify the request.
+
+        Returns:
+            ResponseTrace: Response trace object containing request and response details.
+        """
+        trace_id = self._generate_trace_id()
         athena_request = self.__base_request_apply(AthenaRequest())
         athena_request.url = url
         athena_request.method = method
@@ -226,7 +244,7 @@ class Client:
         return trace.response
     
     async def send_async(self, method, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
-        trace_id = self.generate_trace_id()
+        trace_id = self._generate_trace_id()
         athena_request = self.__base_request_apply(AthenaRequest())
         athena_request.url = url
         athena_request.method = method

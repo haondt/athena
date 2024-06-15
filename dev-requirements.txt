@@ -6,3 +6,6 @@ aiohttp
 pygments
 poetry
 watchdog
+mkdocstrings[python]
+mkdocs-material
+mkdocs-click

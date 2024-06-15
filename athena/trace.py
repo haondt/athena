@@ -27,6 +27,17 @@ class LinkedResponse(aiohttp.ClientResponse):
 
 @serializeable
 class AthenaTrace:
+    """Trace of a single request.
+
+    Attributes:
+        id (str): The unique identifier for the trace.
+        name (str): The name of the trace.
+        request (RequestTrace): Trace of the request.
+        response (ResponseTrace): Trace of the response.
+        start (float): The start time of the request in seconds.
+        end (float): The end time of the request in seconds.
+        elapsed (float): The duration of the request in seconds.
+    """
     def __init__(self,
         id: str,
         name: str,
@@ -55,6 +66,17 @@ class AthenaTrace:
 
 @serializeable
 class ResponseTrace:
+    """Trace of the response component.
+
+    Attributes:
+        headers (dict): The headers of the response.
+        url (str): The URL of the response.
+        reason (str): The reason phrase of the response.
+        content_type (str | None): The content type of the response.
+        status_code (int): The status code of the response.
+        text (str): The text content of the response.
+
+    """
     def __init__(self,
         response: requests.Response | aiohttp.ClientResponse,
         response_text: str | None
@@ -84,10 +106,26 @@ class ResponseTrace:
         return jsonify(self)
 
     def json(self):
+        """
+        Parses the response text as JSON and returns the result.
+
+        Returns:
+            dict: The parsed JSON content of the response text.
+        """
         return json.loads(self.text)
 
 @serializeable
 class RequestTrace:
+    """Trace of the request component.
+
+    Attributes:
+        method (str): The HTTP method of the request.
+        url (str): The URL of the request.
+        headers (dict): The headers of the request.
+        content_type (str | None): The content type of the request.
+        text (str): The text content of the request.
+
+    """
     json_re = re.compile(r"^application/(?:[\w.+-]+?\+)?json")
     def __init__(self, 
         request: requests.PreparedRequest | aiohttp.ClientRequest,

@@ -1,0 +1,47 @@
+site_name: athena
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Usage:
+    - usage.md
+    - Client: 
+      - Client: client/client.md
+    - CLI: cli.md
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+  features:
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+            heading_level: 1
+            # show_symbol_type_toc: true
+            # show_category_heading: true
+            show_source: true
+            show_labels: false
+            # show_symbol_type_heading: true
+            show_if_no_docstring: false
+            filters:
+              - "!^_"
+            modernize_annotations: true
+
+
+markdown_extensions: 
+  - mkdocs-click
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
