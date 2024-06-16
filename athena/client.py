@@ -80,6 +80,7 @@ class Cache:
     def __contains__(self, key: str) -> bool:
         self._assert_key_type(key)
         return key in self._data
+
     def pop(self, key: str) -> Any:
         self._assert_key_type(key)
         if key in self._data:
@@ -90,6 +91,14 @@ class Cache:
 
 @serializeable
 class Context:
+    """Information about the runtime environment of the module
+
+    Attributes:
+        environment (str): name of environment
+        module_name (str): name of the module
+        module_path (str): path to the module
+        root_path (str): path to root of athena directory
+    """
     def __init__(self,
         environment: str | None,
         module_name: str,
@@ -127,6 +136,15 @@ class AthenaSession:
 
 
 class Athena:
+    """Main api for executed modules
+
+    Attributes:
+        fixture (Fixture): provider for test fixtures
+        infix (Fixture): wrapper for `fixture` that will inject `Athena` instance as the first argument
+        cache (Cache): persistent key (`str`) - value (`str`, `int`, `float`, `bool`) cache
+        context (Context): information about the runtime environment of the module
+        fake (Fake): generate randomized data
+    """
     def __init__(self,
         context: Context,
         session: AthenaSession,
@@ -143,8 +161,25 @@ class Athena:
         self.fake = Fake()
 
     def variable(self, name: str) -> str:
+        """Get a variable by name.
+
+        Args:
+            name (str): Name of variable to retrieve.
+
+        Returns:
+            str: Variable value.
+        """
         return self.__resource(name, self.__session.resource_loader.load_variables, 'variable')
+
     def secret(self, name: str) -> str:
+        """Get a secret by name.
+
+        Args:
+            name (str): Name of secret to retrieve.
+
+        Returns:
+            str: secret value.
+        """
         return self.__resource(name, self.__session.resource_loader.load_secrets, 'secret')
 
     def __resource(self, name: str, resource_loading_method: Callable[[str, str], _resource_type], resource_type: str) -> str:
@@ -171,12 +206,41 @@ class Athena:
         self.__history.append(trace)
 
     def client(self, base_build_request: Callable[[RequestBuilder], RequestBuilder] | None=None, name: str | None=None) -> Client:
+        """Create a new client.
+
+        Args:
+            base_build_request (Callable[[RequestBuilder], [RequestBuilder]] | None): Function to configure all requests sent by the client.
+            name (str | None): Optional name for client.
+
+        Returns:
+            Client: The configured client.
+        """
         return Client(self.__session.session, self.__session.async_session, base_build_request, name, self.__client_pre_hook, self.__client_post_hook)
 
     def traces(self) -> list[AthenaTrace]:
+        """Get all `AthenaTrace`s from the lifetime of this instance. 
+
+        Returns:
+            list[AthenaTrace]: List of traces.
+        """
         return [i for i in self.__history if isinstance(i, AthenaTrace)]
 
     def trace(self, subject: AthenaTrace | RequestTrace | ResponseTrace | None=None) -> AthenaTrace:
+        """Get the full `AthenaTrace` for a given request or response trace.
+
+        Args:
+            subject (AthenaTrace | RequestTrace | ResponseTrace | None): The trace to lookup. If no trace is provided, will return the most recent trace.
+
+        Returns:
+            AthenaTrace: The full `AthenaTrace` for the subject.
+
+        Example:
+
+            def run(athena: Athena):
+                response = athena.client().get('https://example.com')
+                trace = athena.trace(response)
+                print(f'request completed in {trace.elapsed} seconds')
+        """
         traces = self.traces()
         if subject is None:
             if len(traces) == 0:
@@ -204,4 +268,21 @@ class Athena:
         return trace
 
 def jsonify(item: Any, *args, **kwargs):
+    """Runs objects through json.dumps, with an encoder for athena objects.
+
+    Args:
+        item (Any): The item to json encode.
+
+    Returns:
+        str: The json string
+
+    Example:
+
+        from athena.client import Athena, jsonify
+
+        def run(athena: Athena):
+            athena.client().get("http://haondt.com")
+            traces = athena.traces()
+            print(jsonify(traces, indent=4))
+    """
     return json_dumps(item, cls=AthenaJSONEncoder, *args, **kwargs)
