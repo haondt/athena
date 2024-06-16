@@ -28,4 +28,4 @@ python3 -m pip install ./athena
 
 ## Usage
 
-See the [quickstart guide](../quickstart) to get things rolling. Then check out the [api usage guide](../api/usage) for how to create executable modules, and see the [cli usage guide](../cli/usage) for how to run them.
+See the [quickstart guide](./quickstart) to get things rolling. Then check out the [api usage guide](./api/usage) for how to create executable modules, and see the [cli usage guide](./cli/usage) for how to run them.
