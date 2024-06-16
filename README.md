@@ -17,7 +17,7 @@ def run(athena: Athena):
     response = client.get('https://example.com')
     athert(response.status_code).equals(200)
 EOF
-$ athena run hello.py
+$ athena run athena/hello.py
 hello: passed
 ```
 
