@@ -3,11 +3,16 @@ site_name: athena
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
-  - Usage:
-    - usage.md
-    - Client: 
-      - Client: client/client.md
-    - CLI: cli.md
+  - CLI:
+    - Usage: cli/usage.md
+    - Reference: cli/reference.md
+  - API:
+    - Usage: api/usage.md
+    - Client: api/client.md
+    - Trace: api/trace.md
+    - Request: api/request.md
+    - Fake: api/fake.md
+    - Test: api/test.md
 
 theme:
   name: material

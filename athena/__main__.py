@@ -119,7 +119,7 @@ def clear():
 @click.option('-p', '--path', type=str, help="path to athena directory", default=None)
 def clear_environment(path: str | None):
     """
-    Sets the default environment
+    Clears the default environment
     """
     path = path or os.getcwd()
     root = file.find_root(path)

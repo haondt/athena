@@ -64,18 +64,21 @@ class AthenaRequest:
             kwargs)
 
 class AuthStepFactory:
+    """Factory for adding authentication to the request."""
     def __init__(self, 
         add_build_step: Callable[[Callable[[AthenaRequest], AthenaRequest]], None],
         parent: RequestBuilder):
         self._add_build_step = add_build_step
         self._parent = parent
     def bearer(self, token: str) -> RequestBuilder:
+        """Add bearer token authentication."""
         def set_bearer(rq: AthenaRequest):
             rq.headers["Authorization"] = f"Bearer {token}" 
             return rq
         self._add_build_step(set_bearer)
         return self._parent
     def basic(self, username: str, password: str) -> RequestBuilder:
+        """Add basic (username and password) authentication."""
         def set_auth(rq: AthenaRequest):
             rq.auth = (username, password)
             return rq
@@ -83,18 +86,21 @@ class AuthStepFactory:
         return self._parent
 
 class HookStepFactory:
+    """Factory for adding pre or post request hooks to the request."""
     def __init__(self,
         add_build_step: Callable[[Callable[[AthenaRequest], AthenaRequest]], None],
         parent: RequestBuilder):
         self._add_build_step = add_build_step
         self._parent = parent
     def before(self, hook: Callable[[AthenaRequest], None]) -> RequestBuilder:
+        """Add pre-request hook."""
         def add_hook(rq: AthenaRequest):
             rq._before_hooks.append(hook)
             return rq
         self._add_build_step(add_hook)
         return self._parent
     def after(self, hook: Callable[[ResponseTrace], None]) -> RequestBuilder:
+        """Add post-request hook."""
         def add_hook(rq: AthenaRequest):
             rq._after_hooks.append(hook)
             return rq
@@ -102,12 +108,14 @@ class HookStepFactory:
         return self._parent
 
 class BodyStepFactory:
+    """Factory for adding a payload to the request."""
     def __init__(self,
         add_build_step: Callable[[Callable[[AthenaRequest], AthenaRequest]], None],
         parent: RequestBuilder):
         self._add_build_step = add_build_step
         self._parent = parent
     def json(self, payload) -> RequestBuilder:
+        """Add a json payload."""
         def add_json(rq: AthenaRequest):
             rq.json = payload
             return rq
@@ -115,6 +123,12 @@ class BodyStepFactory:
         return self._parent
 
     def form(self, payload: dict[str, str | int | float | bool]) -> RequestBuilder:
+        """Add a form payload
+        
+        Args:
+            payload (dict[str, str | int | float | bool]): form data
+
+        """
         def add_data(rq: AthenaRequest):
             rq.data = payload
             return rq
@@ -123,6 +137,13 @@ class BodyStepFactory:
 
 
 class RequestBuilder:
+    """Builder for configuring an `AthenaRequest`.
+
+    Attributes:
+        auth (AuthStepFactory): Factory for configuring request authentication.
+        hook (HookStepFactory): Factory for configuring pre and post request hooks.
+        body (BodyStepFactory): Factory for configuring request payload.
+    """
     def __init__(self):
         self._build_steps: list[Callable[[AthenaRequest], AthenaRequest]] = []
         self.auth: AuthStepFactory = AuthStepFactory(lambda rq: self._build_steps.append(rq), self)
@@ -130,6 +151,7 @@ class RequestBuilder:
         self.body: BodyStepFactory = BodyStepFactory(lambda rq: self._build_steps.append(rq), self)
 
     def base_url(self, base_url) -> RequestBuilder:
+        """Set the request base url."""
         def set_base_url(rq: AthenaRequest):
             rq.base_url = base_url
             return rq
@@ -137,6 +159,7 @@ class RequestBuilder:
         return self
 
     def verify_ssl(self, verify_ssl: bool) -> RequestBuilder:
+        """Enable or disable ssl verification. This is enabled by default."""
         def set_verify_ssl(rq: AthenaRequest):
             rq.verify_ssl = verify_ssl
             return rq
@@ -144,6 +167,7 @@ class RequestBuilder:
         return self
 
     def allow_redirects(self, allow_redirects: bool) -> RequestBuilder:
+        """Enable or disable following redirects. This is enabled by default."""
         def set_allow_redirects(rq: AthenaRequest):
             rq.allow_redirects = allow_redirects
             return rq
@@ -151,6 +175,11 @@ class RequestBuilder:
         return self
 
     def header(self, header_key, header_value) -> RequestBuilder:
+        """Add a header to the request.
+
+        Raises:
+            AthenaException: If the given header key has already been set.
+        """
         def add_header(rq: AthenaRequest):
             if header_key in  rq.headers:
                 raise AthenaException(f"key \"{header_key}\" already present in request headers")
@@ -244,6 +273,18 @@ class Client:
         return trace.response
     
     async def send_async(self, method, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        """
+        Sends an asynchronous HTTP request.
+
+        Args:
+            method (str): HTTP method ('GET'/'POST'/'PUT'/'DELETE').
+            url (str): URL endpoint for the request
+            build_request (Callable[[RequestBuilder], RequestBuilder], optional):
+                Optional function to build or modify the request.
+
+        Returns:
+            ResponseTrace: Response trace object containing request and response details.
+        """
         trace_id = self._generate_trace_id()
         athena_request = self.__base_request_apply(AthenaRequest())
         athena_request.url = url
@@ -280,18 +321,106 @@ class Client:
         return trace.response
 
     def get(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        """
+        Sends a synchronous GET request.
+
+        Args:
+            url (str): URL endpoint for the request
+            build_request (Callable[[RequestBuilder], RequestBuilder], optional):
+                Optional function to build or modify the request.
+
+        Returns:
+            ResponseTrace: Response trace object containing request and response details.
+        """
         return self.send("get", url, build_request)
     def post(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        """
+        Sends a synchronous POST request.
+
+        Args:
+            url (str): URL endpoint for the request
+            build_request (Callable[[RequestBuilder], RequestBuilder], optional):
+                Optional function to build or modify the request.
+
+        Returns:
+            ResponseTrace: Response trace object containing request and response details.
+        """
         return self.send("post", url, build_request)
     def delete(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        """
+        Sends a synchronous DELETE request.
+
+        Args:
+            url (str): URL endpoint for the request
+            build_request (Callable[[RequestBuilder], RequestBuilder], optional):
+                Optional function to build or modify the request.
+
+        Returns:
+            ResponseTrace: Response trace object containing request and response details.
+        """
         return self.send("delete", url, build_request)
     def put(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        """
+        Sends a synchronous PUT request.
+
+        Args:
+            url (str): URL endpoint for the request
+            build_request (Callable[[RequestBuilder], RequestBuilder], optional):
+                Optional function to build or modify the request.
+
+        Returns:
+            ResponseTrace: Response trace object containing request and response details.
+        """
         return self.send("put", url, build_request)
     async def get_async(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        """
+        Sends an asynchronous GET request.
+
+        Args:
+            url (str): URL endpoint for the request
+            build_request (Callable[[RequestBuilder], RequestBuilder], optional):
+                Optional function to build or modify the request.
+
+        Returns:
+            ResponseTrace: Response trace object containing request and response details.
+        """
         return await self.send_async("get", url, build_request)
     async def post_async(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        """
+        Sends an asynchronous POST request.
+
+        Args:
+            url (str): URL endpoint for the request
+            build_request (Callable[[RequestBuilder], RequestBuilder], optional):
+                Optional function to build or modify the request.
+
+        Returns:
+            ResponseTrace: Response trace object containing request and response details.
+        """
         return await self.send_async("post", url, build_request)
     async def delete_async(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        """
+        Sends an asynchronous DELETE request.
+
+        Args:
+            url (str): URL endpoint for the request
+            build_request (Callable[[RequestBuilder], RequestBuilder], optional):
+                Optional function to build or modify the request.
+
+        Returns:
+            ResponseTrace: Response trace object containing request and response details.
+        """
         return await self.send_async("delete", url, build_request)
     async def put_async(self, url, build_request: Callable[[RequestBuilder], RequestBuilder] | None=None) -> ResponseTrace:
+        """
+        Sends an asynchronous PUT request.
+
+        Args:
+            url (str): URL endpoint for the request
+            build_request (Callable[[RequestBuilder], RequestBuilder], optional):
+                Optional function to build or modify the request.
+
+        Returns:
+            ResponseTrace: Response trace object containing request and response details.
+        """
         return await self.send_async("put", url, build_request)

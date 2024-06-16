@@ -27,7 +27,7 @@ class LinkedResponse(aiohttp.ClientResponse):
 
 @serializeable
 class AthenaTrace:
-    """Trace of a single request.
+    """Trace of a single request/response saga.
 
     Attributes:
         id (str): The unique identifier for the trace.

@@ -1,4 +1,0 @@
-# Client
-
-::: athena.client.Client
-

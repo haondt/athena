@@ -9,26 +9,23 @@ athena is a file-based rest api client.
 
 I can store my athena workspaces inside the repo of the project they test. Something I was originally doing with ThunderClient before they changed their payment
 model, but even better since I can leverage some python scripting and automation inside my test cases. 
-It's also much more lightweight than something like Postman. Since the workbook is just a collection of plaintext files, you can navigate an athena project with
-any text editor.
 
+Since the workbook is just a few files in a directory, it is inherently much more lightweight than Postman or other similar api clients. All you need to run athena is a terminal, and (optionally) your text editor of choice.
 
+## Installation
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+athena can be installed as a pypi package or from source. athena requires python>=3.11
 
-## Commands
+```sh
+# from pypi
+python3 -m pip install haondt-athena
+# from gitlab
+python3 -m pip install haondt-athena --index-url https://gitlab.com/api/v4/projects/57154225/packages/pypi/simple
+# from source
+git clone https://gitlab.com/haondt/athena.git
+python3 -m pip install ./athena
+```
 
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
+## Usage
 
-## Project layout
-
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
-
-<!-- ::: athena.__main__ -->
-
+See the [quickstart guide](../quickstart) to get things rolling. Then check out the [api usage guide](../api/usage) for how to create executable modules, and see the [cli usage guide](../cli/usage) for how to run them.
