@@ -5,81 +5,44 @@
 
 athena is a file-based rest api client.
 
-# Utilities
+```sh
+$ pip install haondt-athena
+$ athena init
+$ cat << EOF > athena/hello.py
+from athena.client import Athena
+from athena.test import athert
 
-## import/export
+def run(athena: Athena):
+    client = athena.client()
+    response = client.get('https://example.com')
+    athert(response.status_code).equals(200)
+EOF
+$ athena run hello.py
+hello: passed
+```
 
-You can import and export secrets and variables with the `import` and `export` commands.
-`export` will print to stdout and `import` will either take the values as an argument or take
-the path to a file as an option. These commands will import/export all values for the entire
-athena project.
+athena provides a lightweight alternative to full-blown api platforms like Postman with a few key advantages:
+
+- You are free to use any text editor you would like as the api client. Lightweight editors like Neovim or VSCode allow for a much thinner client.
+- As the workbook is just a collection of plaintext files, you can keep it in the same git repo as the project it is testing.
+- Since requests are just python modules, you can script to your hearts content, and leverage external python libraries.
+
+## Installation 
+
+athena can be installed as a pypi package or from source. athena requires python>=3.11.
 
 ```sh
-athena export secrets > secrets.json
+# from pypi
+python3 -m pip install haondt-athena
 
-athena import secrets -f secrets.json
+# from gitlab
+python3 -m pip install haondt-athena --index-url https://gitlab.com/api/v4/projects/57154225/packages/pypi/simple
+
+# from source
+git clone https://gitlab.com/haondt/athena.git
+python3 -m pip install ./athena
 ```
 
-## responses
+## Usage
 
-The `responses` command will run one or more modules and pretty-print information about the responses of
-all the requests that were sent during the execution. 
-
-```
-$ athena responses get_planets.py
-
-get_planets •
-│ execution
-│ │ environment: __default__
-│ │ Warning: execution failed to complete successfully
-│ │ AssertionError: expected `200` but found `401`
-│ 
-│ timings
-│ │ api/planets     ····················· 2.59ms
-│ │ planet/Venus                           ·············· 1.64ms
-│ 
-│ traces
-│ │ api/planets
-│ │ │ │ GET http://localhost:5000/api/planets
-│ │ │ │ 401 UNAUTHORIZED 2.59ms
-│ │ │ 
-│ │ │ headers
-│ │ │ │ Server         | Werkzeug/3.0.0 Python/3.10.12
-│ │ │ │ Date           | Fri, 14 Jun 2024 11:09:26 GMT
-│ │ │ │ Content-Type   | application/json
-│ │ │ │ Content-Length | 39
-│ │ │ │ Connection     | close
-│ │ │ 
-│ │ │ body | application/json [json] 39B
-│ │ │ │ 1 {
-│ │ │ │ 2   "error": "Authentication failed"
-│ │ │ │ 3 }
-│ │ │ │ 
-│ │ │ 
-│ │ 
-│ │ planet/Venus
-│ │ │ │ GET http://localhost:5000/planet/Venus
-│ │ │ │ 200 OK 1.64ms
-│ │ │ 
-│ │ │ headers
-│ │ │ │ Server         | Werkzeug/3.0.0 Python/3.10.12
-│ │ │ │ Date           | Fri, 14 Jun 2024 11:09:26 GMT
-│ │ │ │ Content-Type   | text/html; charset=utf-8
-│ │ │ │ Content-Length | 160
-│ │ │ │ Connection     | close
-│ │ │ 
-│ │ │ body | text/html [html] 160B
-│ │ │ │ 1 <html>
-│ │ │ │ 2 <head>
-│ │ │ │ 3     <title>Venus</title>
-│ │ │ │ 4 </head>
-│ │ │ │ 5 <body>
-│ │ │ │ 6     <h1>Venus</h1>
-│ │ │ │ 7     <p>Description: Known for its thick atmosphere</p>
-│ │ │ │ 8 </body>
-│ │ │ │ 9 </html>
-│ │ │ │ 
-│ │ │ 
-│ │ 
-│ 
-```
+Quickstart guide and API / CLI reference available here: https://haondt.gitlab.io/docs/athena/
