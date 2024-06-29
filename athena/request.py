@@ -23,6 +23,7 @@ class AthenaRequest:
         self.cookies: Any = None
         self.verify_ssl: bool = True
         self.allow_redirects: bool = True
+        self.timeout: float = 30
 
         self._before_hooks: list[Callable[[AthenaRequest], None]] = []
         self._after_hooks: list[Callable[[ResponseTrace], None]] = []
@@ -115,7 +116,7 @@ class BodyStepFactory:
         self._add_build_step = add_build_step
         self._parent = parent
     def json(self, payload) -> RequestBuilder:
-        """Add a json payload."""
+        """Set the json payload."""
         def add_json(rq: AthenaRequest):
             rq.json = payload
             return rq
@@ -123,7 +124,7 @@ class BodyStepFactory:
         return self._parent
 
     def form(self, payload: dict[str, str | int | float | bool]) -> RequestBuilder:
-        """Add a form payload
+        """Set the form payload
         
         Args:
             payload (dict[str, str | int | float | bool]): form data
@@ -135,6 +136,26 @@ class BodyStepFactory:
         self._add_build_step(add_data)
         return self._parent
 
+    def form_append(self, form_key: str, form_value: str | int | float | bool | list[str | int | float | bool]) -> RequestBuilder:
+        """Set a value in the form payload, without overwriting the existing form payload.
+
+        Args:
+            form_key (str): key in form to append to
+            form_value (str | int | float | bool | list[str | int | float | bool]): value to append to form
+        """
+        def add_data(rq: AthenaRequest):
+            if form_key not in rq.data:
+                rq.data[form_key] = []
+            elif not isinstance(rq.data[form_key], list):
+                tmp = rq.data[form_key]
+                rq.data[form_key] = [tmp]
+            if isinstance(form_value, list):
+                rq.data[form_key] += form_value
+            else:
+                rq.data[form_key].append(form_value)
+            return rq
+        self._add_build_step(add_data)
+        return self._parent
 
 class RequestBuilder:
     """Builder for configuring an `AthenaRequest`.
@@ -174,6 +195,19 @@ class RequestBuilder:
         self._build_steps.append(set_allow_redirects)
         return self
 
+    def timeout(self, seconds: float) -> RequestBuilder:
+        """Set the timeout of the request.
+
+        Args:
+            seconds (float): seconds to wait before timing out the request (default 30)
+        """
+        def add_timeout(rq: AthenaRequest):
+            rq.timeout = seconds
+            return rq
+        self._build_steps.append(add_timeout)
+        return self
+
+
     def header(self, header_key, header_value) -> RequestBuilder:
         """Add a header to the request.
 
@@ -186,6 +220,24 @@ class RequestBuilder:
             rq.headers[header_key] = header_value
             return rq
         self._build_steps.append(add_header)
+        return self
+
+    def query(self, param_key: str, param_value: str | int | float | bool | list[str | int | float | bool]) -> RequestBuilder:
+        """Add a value to the request query.
+
+        Args:
+            param_key (str): key in query to set
+            param_value (str | int | float | bool | list[str | int | float | bool]): value to use. can be a single value or a list of values.
+        """
+        def add_query_param(rq: AthenaRequest):
+            if param_key not in rq.params:
+                rq.params[param_key] = []
+            if isinstance(param_value, list):
+                rq.params[param_key] += param_value
+            else:
+                rq.params[param_key].append(param_value)
+            return rq
+        self._build_steps.append(add_query_param)
         return self
 
     def compile(self) -> Callable[[AthenaRequest], AthenaRequest]:
@@ -255,7 +307,7 @@ class Client:
         request = athena_request._to_requests_request()
 
         start = time()
-        response = self.__session.send(request, allow_redirects=athena_request.allow_redirects, timeout=30, verify=athena_request.verify_ssl)
+        response = self.__session.send(request, allow_redirects=athena_request.allow_redirects, timeout=athena_request.timeout, verify=athena_request.verify_ssl)
         end = time()
 
         trace_name = ""
@@ -298,7 +350,7 @@ class Client:
         request = athena_request._to_aiohttp_request()
 
         trace = None
-        timeout = aiohttp.ClientTimeout(total=30)
+        timeout = aiohttp.ClientTimeout(total=athena_request.timeout)
 
         start = time()
         async with self.__async_session.request(request.method, request.url, timeout=timeout, **request.kwargs) as response:

@@ -46,3 +46,22 @@ python3 -m pip install ./athena
 ## Usage
 
 Quickstart guide and API / CLI reference available here: https://haondt.gitlab.io/docs/athena/
+
+
+## Development
+
+### Running Tests
+
+#### how to run the e2e tests
+
+- build docker images for the api echo server and for the test runner images
+
+```sh
+.tests/e2e/build_dockerfile.sh
+```
+
+- start both images to run the tests
+
+```sh
+./tests/e2e/run_tests.sh
+```

@@ -117,6 +117,12 @@ traceme •
 │
 ```
 
+The [`trace`](../reference#trace) command can also be used to just print out the raw exceution trace of a module.
+
+```sh
+$ athena trace traceme.py | jq .
+```
+
 ### Watching a Directory
 
 The [`watch`](../reference#watch) command can be used to create a long-running thread that will watch a directory for changes. If a (runnable) module is written to inside that directory, the `responses` command will be called on it.

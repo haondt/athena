@@ -6,3 +6,4 @@ poetry.lock
 *.egg-info/
 site
 .history
+.pytest_cache

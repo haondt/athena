@@ -424,6 +424,22 @@ def responses(paths: list[str], environment: str | None, verbose: bool):
             force_environment=environment,
             module_callback=lambda _, result: click.echo(f"{display.responses(result)}"))
 
+@athena.command()
+@click.argument('paths', type=str, nargs=-1)
+@click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
+def trace(paths: list[str], environment: str | None):
+    """
+    Run one or more modules and print the full traces.
+    
+    PATH - Path to file or directory of modules to watch.
+    """
+    results = []
+    run_modules_and(
+            paths,
+            force_environment=environment,
+            module_callback=lambda _, result: results.append(result.as_serializable()))
+    click.echo(f"{jsonify(results)}")
+
 def main():
     try:
         athena()
