@@ -23,7 +23,7 @@ python3 -m pip install haondt-athena
 python3 -m pip install haondt-athena --index-url https://gitlab.com/api/v4/projects/57154225/packages/pypi/simple
 # from source
 git clone https://gitlab.com/haondt/athena.git
-python3 -m pip install ./athena
+python3 -m pip install .
 ```
 
 ## Usage
