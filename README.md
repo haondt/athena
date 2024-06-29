@@ -40,7 +40,7 @@ python3 -m pip install haondt-athena --index-url https://gitlab.com/api/v4/proje
 
 # from source
 git clone https://gitlab.com/haondt/athena.git
-python3 -m pip install ./athena
+python3 -m pip install .
 ```
 
 ## Usage
@@ -52,7 +52,7 @@ Quickstart guide and API / CLI reference available here: https://haondt.gitlab.i
 
 ### Running Tests
 
-#### how to run the e2e tests
+#### How to run the E2E tests
 
 - build docker images for the api echo server and for the test runner images
 
