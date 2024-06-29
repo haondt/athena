@@ -57,7 +57,7 @@ Quickstart guide and API / CLI reference available here: https://haondt.gitlab.i
 - build docker images for the api echo server and for the test runner images
 
 ```sh
-.tests/e2e/build_dockerfile.sh
+./tests/e2e/build_dockerfile.sh
 ```
 
 - start both images to run the tests
