@@ -212,9 +212,10 @@ def run(paths: list[str], environment: str | None, verbose: bool):
 @click.argument('path', type=str, required=False)
 @click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
 @click.option('-e', '--environment', type=str, help="environment to use for execution", default=None)
-def watch(path: str | None, environment: str | None, verbose: bool):
+@click.option('-c', '--command', type=click.Choice(['responses', 'trace', 'run']), help="command to run on changed module", default="responses")
+def watch(path: str | None, environment: str | None, command: str, verbose: bool):
     """
-    Watch the given path for changes, and execute `responses` on the changed file.
+    Watch the given path for changes, and execute the given command on the changed file.
 
     PATH - Path to file or directory of modules to watch.
     """
@@ -224,8 +225,14 @@ def watch(path: str | None, environment: str | None, verbose: bool):
     path = path or os.getcwd()
     root = file.find_root(path)
 
-    def module_callback(module_name, result):
-        click.echo(f"{display.responses(result)}")
+    def module_callback(module_name: str, result: ExecutionTrace):
+        match command:
+            case 'responses':
+                click.echo(f"{display.responses(result)}")
+            case 'trace':
+                click.echo(f"{jsonify(result.as_serializable())}")
+            case 'run':
+                click.echo(f"{module_name}: {result.format_long()}")
 
     async def on_change_async(changed_path: str, session: AthenaSession):
         env = environment or internal_get_environment(root)
