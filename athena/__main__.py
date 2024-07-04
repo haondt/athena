@@ -196,7 +196,7 @@ def run_modules_and(
 @click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
 def run(paths: list[str], environment: str | None, verbose: bool):
     """
-    Run one or more modules and print the output.
+    Run one or more modules and indicated whether they pass or fail.
     
     PATH - Path to module(s) to run.
     """
@@ -209,10 +209,24 @@ def run(paths: list[str], environment: str | None, verbose: bool):
             module_callback=lambda module_name, result: click.echo(f"{module_name}: {result.format_long()}"))
 
 @athena.command()
+@click.argument('paths', type=str, nargs=-1)
+@click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
+def exec(paths: list[str], environment: str | None):
+    """
+    Execute one or more modules without any additional processing of output.
+    
+    PATH - Path to module(s) to run.
+    """
+    run_modules_and(
+            paths,
+            force_environment=environment,
+            module_callback=lambda _, __: None)
+
+@athena.command()
 @click.argument('path', type=str, required=False)
 @click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
 @click.option('-e', '--environment', type=str, help="environment to use for execution", default=None)
-@click.option('-c', '--command', type=click.Choice(['responses', 'trace', 'run']), help="command to run on changed module", default="responses")
+@click.option('-c', '--command', type=click.Choice(['responses', 'trace', 'run', 'exec']), help="command to run on changed module", default="responses")
 def watch(path: str | None, environment: str | None, command: str, verbose: bool):
     """
     Watch the given path for changes, and execute the given command on the changed file.
@@ -233,6 +247,8 @@ def watch(path: str | None, environment: str | None, command: str, verbose: bool
                 click.echo(f"{jsonify(result.as_serializable())}")
             case 'run':
                 click.echo(f"{module_name}: {result.format_long()}")
+            case 'exec':
+                pass
 
     async def on_change_async(changed_path: str, session: AthenaSession):
         env = environment or internal_get_environment(root)

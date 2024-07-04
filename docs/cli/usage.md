@@ -43,6 +43,14 @@ my_module: failed
     │ Exception: I failed :(
 ```
 
+## Running modules without additional processing
+
+athena can also run a module as if it is just executing a python script wtih  the [`exec`](../reference#exec) command.
+
+```sh
+athena exec my_module.py
+```
+
 ### Specifying modules
 
 Any number of files can be passed to the `run` (and similar) commands. If the file is not runnable (it is supposed to be ignored, it is not a python file, etc), the `run` command will silently ignore it. This enables you to glob modules.
@@ -129,6 +137,12 @@ The [`watch`](../reference#watch) command can be used to create a long-running t
 
 ```sh
 athena watch .
+```
+
+`responses` is the default command to use, but an alternative command can be supplied.
+
+```sh
+athena watch -c run .
 ```
 
 This command will also use a pooled http client session where possible. 
