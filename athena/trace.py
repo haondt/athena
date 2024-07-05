@@ -56,6 +56,7 @@ class AthenaTrace:
         self.name = name
         self.warnings = warnings or []
 
+
         # timestamps are in seconds
         self.elapsed = str(timedelta(seconds=end-start))
         self.start = start
@@ -133,7 +134,7 @@ class RequestTrace:
     ):
         self.method = request.method
         self.url = str(request.url)
-        self.headers = { k:request.headers[k] for k in request.headers.keys() }
+        self.headers = { k:v for k, v in request.headers.items() }
         self.content_type: str | None = self.headers.get(aiohttp.hdrs.CONTENT_TYPE, None)
 
         if request_text is not None:

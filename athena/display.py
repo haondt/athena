@@ -1,3 +1,4 @@
+from athena.athena_json import jsonify
 from .run import ExecutionTrace
 from .format import short_format_error, color, colors, indent, rtruncate
 from . import humanize
@@ -7,6 +8,7 @@ import json
 import xml.etree.ElementTree as xmlET
 from pygments import highlight
 from pygments.formatters import TerminalFormatter
+from urllib.parse import parse_qsl
 
 _color_list = [
     colors.red,
@@ -35,8 +37,8 @@ def _try_prettify_json(text: str) -> str | None:
     except:
         pass
     try:
-        from pygments.lexers import jsonnet
-        lexer = jsonnet.JsonnetLexer()
+        from pygments.lexers.data import JsonLexer
+        lexer = JsonLexer()
         return highlight(text, lexer, formatter)
     except:
         return None
@@ -73,9 +75,34 @@ def _try_prettify_xml(text: str) -> str | None:
     except:
         return None
 
+def _is_url_encoded_form(content_type: str) -> bool:
+    return content_type == "application/x-www-form-urlencoded"
+
+def _try_prettify_url_encoded_form(text: str) -> str | None:
+    try:
+        data = parse_qsl(text)
+        lines = []
+        for k, v in data:
+            lines.append(f'{k}{color("=", colors.brightred)}{v}')
+        return '\n'.join(lines) + '\n'
+    except:
+        return None
+
 formatter = TerminalFormatter()
 
-def responses(trace: ExecutionTrace):
+def trace_plain(trace: ExecutionTrace, include_requests: bool, include_responses: bool) -> str:
+    jsonified = jsonify(trace.as_serializable())
+    if include_requests and include_responses:
+        return jsonified
+    copy = json.loads(jsonified)
+    for athena_trace in copy['athena_traces']:
+        if not include_requests:
+            del athena_trace['request']
+        if not include_responses:
+            del athena_trace['response']
+    return json.dumps(copy)
+
+def trace(trace: ExecutionTrace, include_requests: bool, include_responses: bool):
     output = []
     #min_width = 40
     #max_width = 165
@@ -86,6 +113,7 @@ def responses(trace: ExecutionTrace):
         success_color = colors.green if trace.success else colors.red
         section_output += f"{color(trace.module_name, colors.underline, colors.bold)} {color('•', success_color)}"
         return section_output
+
     def sub_header() -> str:
         section_output = ""
         section_output += f"environment: {trace.environment}"
@@ -97,10 +125,11 @@ def responses(trace: ExecutionTrace):
         elif trace.error is not None:
             section_output += f"\n{color('Warning:', colors.yellow)} execution completed with errors\n{color(short_format_error(trace.error), colors.brightyellow)}"
         return section_output
+
     def duration_view():
         assert len(trace.athena_traces) > 0
         return f"{_create_duration_view(trace, output_width)}"
-    def trace_digests():
+    def trace_digests(include_requests: bool, include_responses: bool):
         assert len(trace.athena_traces) > 0
         digests = []
         for athena_trace in trace.athena_traces:
@@ -116,46 +145,104 @@ def responses(trace: ExecutionTrace):
 
             max_header_key_len = min(max([len(i) for i in athena_trace.response.headers.keys()]), output_width // 2 - 3)
             max_header_value_len =  output_width - max_header_key_len
-            header_info = []
-            for key, value in athena_trace.response.headers.items():
-                if len(key) > max_header_key_len:
-                    key = rtruncate(key, max_header_key_len)
-                if len(key) < max_header_key_len:
-                    key = key.ljust(max_header_key_len)
-                if len(value) > max_header_value_len:
-                    value = rtruncate(value, max_header_value_len)
-                header_info.append(f"{color(key, colors.brightwhite)} | {value}")
-            header_info = "\n".join(header_info)
-            entry.append((color("headers", colors.underline), [header_info]))
 
-            body_info = []
-            line_numbers = True
-            body_text = athena_trace.response.text
-            render_method = "text"
-            if athena_trace.response.content_type is not None:
-                for check, func, rm in [
-                        (_is_json, _try_prettify_json, "json", ),
-                        (_is_html, _try_prettify_html, "html"),
-                        (_is_xml, _try_prettify_xml, "xml"),
-                        ]:
-                    if check(athena_trace.response.content_type):
-                        result = func(body_text)
-                        if result is not None:
-                            body_text = result
-                            render_method = rm
-                            break
-            if line_numbers:
-                numbered_text = []
-                for i, line in enumerate(body_text.split("\n")[:-1]):
-                    numbered_text.append(color(f"{i+1}", colors.brightwhite) + " " + line)
-                body_text = "\n".join(numbered_text) + "\n"
+            def request_digest():
+                request_entry = []
+                header_info = []
+                for key, value in athena_trace.request.headers.items():
+                    if len(key) > max_header_key_len:
+                        key = rtruncate(key, max_header_key_len)
+                    if len(key) < max_header_key_len:
+                        key = key.ljust(max_header_key_len)
+                    if len(value) > max_header_value_len:
+                        value = rtruncate(value, max_header_value_len)
+                    header_info.append(f"{color(key, colors.brightwhite)} | {value}")
+                header_info = "\n".join(header_info)
+                request_entry.append((color("headers", colors.underline), [header_info]))
+
+                body_info = []
+                line_numbers = True
                 
-            body_metadata = f"{athena_trace.response.content_type} [{render_method}] {humanize.bytes(len(athena_trace.response.text))}"
-            body_info.append(f"{body_text}")
+                body_text = athena_trace.request.text
+                render_method = "text"
+                if athena_trace.request.content_type is not None:
+                    for check, func, rm in [
+                            (_is_json, _try_prettify_json, "json", ),
+                            (_is_html, _try_prettify_html, "html"),
+                            (_is_xml, _try_prettify_xml, "xml"),
+                            (_is_url_encoded_form, _try_prettify_url_encoded_form, "form")
+                            ]:
+                        if check(athena_trace.request.content_type):
+                            result = func(body_text)
+                            if result is not None:
+                                body_text = result
+                                render_method = rm
+                                break
+                if line_numbers:
+                    numbered_text = []
+                    for i, line in enumerate(body_text.split("\n")[:-1]):
+                        numbered_text.append(color(f"{i+1}", colors.brightwhite) + " " + line)
+                    body_text = "\n".join(numbered_text) + "\n"
+                    
+                body_metadata = f"{athena_trace.request.content_type} [{render_method}] {humanize.bytes(len(athena_trace.request.text))}"
+                body_info.append(f"{body_text}")
 
-            body_info = "\n".join(body_info)
-            entry.append((f"{color('body', colors.underline)} | {body_metadata}", [body_info]))
+                body_info = "\n".join(body_info)
 
+                if athena_trace.request.content_type is not None or len(athena_trace.request.text) > 0:
+                    request_entry.append((f"{color('body', colors.underline)} | {body_metadata}", [body_info]))
+
+                request_entry.append((f'url', [athena_trace.request.url]))
+                return request_entry
+
+            def response_digest():
+                response_entry = []
+                header_info = []
+                for key, value in athena_trace.response.headers.items():
+                    if len(key) > max_header_key_len:
+                        key = rtruncate(key, max_header_key_len)
+                    if len(key) < max_header_key_len:
+                        key = key.ljust(max_header_key_len)
+                    if len(value) > max_header_value_len:
+                        value = rtruncate(value, max_header_value_len)
+                    header_info.append(f"{color(key, colors.brightwhite)} | {value}")
+                header_info = "\n".join(header_info)
+                response_entry.append((color("headers", colors.underline), [header_info]))
+
+                body_info = []
+                line_numbers = True
+                body_text = athena_trace.response.text
+                render_method = "text"
+                if athena_trace.response.content_type is not None:
+                    for check, func, rm in [
+                            (_is_json, _try_prettify_json, "json", ),
+                            (_is_html, _try_prettify_html, "html"),
+                            (_is_xml, _try_prettify_xml, "xml"),
+                            (_is_url_encoded_form, _try_prettify_url_encoded_form, "form")
+                            ]:
+                        if check(athena_trace.response.content_type):
+                            result = func(body_text)
+                            if result is not None:
+                                body_text = result
+                                render_method = rm
+                                break
+                if line_numbers:
+                    numbered_text = []
+                    for i, line in enumerate(body_text.split("\n")[:-1]):
+                        numbered_text.append(color(f"{i+1}", colors.brightwhite) + " " + line)
+                    body_text = "\n".join(numbered_text) + "\n"
+                    
+                body_metadata = f"{athena_trace.response.content_type} [{render_method}] {humanize.bytes(len(athena_trace.response.text))}"
+                body_info.append(f"{body_text}")
+
+                body_info = "\n".join(body_info)
+                response_entry.append((f"{color('body', colors.underline)} | {body_metadata}", [body_info]))
+                return response_entry
+
+            if include_requests:
+                entry.append((f"{color('request', colors.bold)}", request_digest()))
+            if include_responses:
+                entry.append((f"{color('response', colors.bold)}", response_digest()))
             digests.append((athena_trace.name, entry))
         return digests
 
@@ -167,7 +254,7 @@ def responses(trace: ExecutionTrace):
         main_header_output.append((color("timings", colors.underline), [duration_view()]))
         digests_output = []
         main_header_output.append((color("traces", colors.underline), digests_output))
-        for name, value in trace_digests():
+        for name, value in trace_digests(include_requests, include_responses):
             digests_output.append((color(name, colors.underline, colors.bold, colors.blue), value))
     return _compute_indented_output(output)
 

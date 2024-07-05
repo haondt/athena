@@ -17,7 +17,7 @@ class AthenaRequest:
         self.url: str = ""
         self.method: str = ""
         self.files: Any = None
-        self.data: dict[str, Any] = {}
+        self.data: dict[str, Any] | None = None
         self.json: dict | list | str | None = None
         self.params: Any = {}
         self.cookies: Any = None
@@ -35,8 +35,8 @@ class AthenaRequest:
         for hook in self._after_hooks:
             hook(trace)
 
-    def _to_requests_request(self) -> requests.PreparedRequest:
-        return requests.Request(
+    def _to_requests_request(self, session: requests.Session) -> requests.PreparedRequest:
+        return session.prepare_request(requests.Request(
             method=self.method.upper(),
             url=f"{self.base_url}{self.url}",
             headers=self.headers, files=self.files,
@@ -46,7 +46,7 @@ class AthenaRequest:
             auth=self.auth,
             cookies=self.cookies,
             hooks=None
-        ).prepare()
+        ))
 
     def _to_aiohttp_request(self) -> AioHttpRequestContainer:
         kwargs = {
@@ -144,6 +144,8 @@ class BodyStepFactory:
             form_value (str | int | float | bool | list[str | int | float | bool]): value to append to form
         """
         def add_data(rq: AthenaRequest):
+            if rq.data is None:
+                rq.data = {}
             if form_key not in rq.data:
                 rq.data[form_key] = []
             elif not isinstance(rq.data[form_key], list):
@@ -304,7 +306,7 @@ class Client:
 
         athena_request._run_before_hooks()
         self.__pre_hook(trace_id)
-        request = athena_request._to_requests_request()
+        request = athena_request._to_requests_request(self.__session)
 
         start = time()
         response = self.__session.send(request, allow_redirects=athena_request.allow_redirects, timeout=athena_request.timeout, verify=athena_request.verify_ssl)

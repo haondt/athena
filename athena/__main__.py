@@ -16,7 +16,7 @@ from . import history
 from . import state as athena_state
 from . import run as athena_run
 from . import status as athena_status
-from .exceptions import AthenaException
+from .exceptions import AthenaException, QuietException
 from .format import colors, color
 from . import display
 from .athena_json import jsonify, dejsonify
@@ -222,53 +222,6 @@ def exec(paths: list[str], environment: str | None):
             force_environment=environment,
             module_callback=lambda _, __: None)
 
-@athena.command()
-@click.argument('path', type=str, required=False)
-@click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
-@click.option('-e', '--environment', type=str, help="environment to use for execution", default=None)
-@click.option('-c', '--command', type=click.Choice(['responses', 'trace', 'run', 'exec']), help="command to run on changed module", default="responses")
-def watch(path: str | None, environment: str | None, command: str, verbose: bool):
-    """
-    Watch the given path for changes, and execute the given command on the changed file.
-
-    PATH - Path to file or directory of modules to watch.
-    """
-    if (verbose):
-        logging.root.setLevel(logging.INFO)
-
-    path = path or os.getcwd()
-    root = file.find_root(path)
-
-    def module_callback(module_name: str, result: ExecutionTrace):
-        match command:
-            case 'responses':
-                click.echo(f"{display.responses(result)}")
-            case 'trace':
-                click.echo(f"{jsonify(result.as_serializable())}")
-            case 'run':
-                click.echo(f"{module_name}: {result.format_long()}")
-            case 'exec':
-                pass
-
-    async def on_change_async(changed_path: str, session: AthenaSession):
-        env = environment or internal_get_environment(root)
-        if file.should_ignore_file(changed_path):
-            return
-        await athena_run.run_modules(root, [changed_path], env, module_callback, session)
-
-    async def inner():
-        async with AthenaSession() as session:
-            # retrieve the loop from the main thread
-            loop = asyncio.get_event_loop()
-            def on_change(changed_path: str):
-                try:
-                    asyncio.run_coroutine_threadsafe(on_change_async(changed_path, session), loop).result()
-                except Exception as e:
-                    sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
-            click.echo(f'Starting to watch `{root}`. Press ^C to stop.')
-            await athena_watch_async(root, 0.1, on_change)
-
-    asyncio.run(inner())
 
 @athena.command()
 @click.argument('path', type=str, required=False)
@@ -430,10 +383,76 @@ def athena_import_variables(variable_data: str, variable_path: str | None):
     click.echo("Variables imported.")
 
 @athena.command()
+@click.argument('path', type=str, required=False)
+@click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
+@click.option('-e', '--environment', type=str, help="environment to use for execution", default=None)
+@click.option('-c', '--command', type=click.Choice(['requests', 'responses', 'traces', 'run', 'exec']), help="command to run on changed module", default="responses")
+@click.option('-p', '--plain', is_flag=True, help="format output as plain json")
+def watch(path: str | None, environment: str | None, command: str, verbose: bool, plain: bool):
+    """
+    Watch the given path for changes, and execute the given command on the changed file.
+
+    PATH - Path to file or directory of modules to watch.
+    """
+    
+    if plain and command not in ['responses', 'requests', 'traces']:
+        click.echo('to use --plain, command must be one of (requests, responses, traces)', err=True)
+        raise QuietException()
+
+    if (verbose):
+        logging.root.setLevel(logging.INFO)
+
+    path = path or os.getcwd()
+    root = file.find_root(path)
+
+    def module_callback(module_name: str, result: ExecutionTrace):
+        match command:
+            case 'responses':
+                if plain:
+                    click.echo(f"{display.trace_plain(result, include_requests=False, include_responses=True)}")
+                else:
+                    click.echo(f"{display.trace(result, include_requests=False, include_responses=True)}")
+            case 'requests':
+                if plain:
+                    click.echo(f"{display.trace_plain(result, include_requests=True, include_responses=False)}")
+                else:
+                    click.echo(f"{display.trace(result, include_requests=True, include_responses=False)}")
+            case 'traces':
+                if plain:
+                    click.echo(f"{display.trace_plain(result, include_requests=True, include_responses=True)}")
+                else:
+                    click.echo(f"{display.trace(result, include_requests=True, include_responses=True)}")
+            case 'run':
+                click.echo(f"{module_name}: {result.format_long()}")
+            case 'exec':
+                pass
+
+    async def on_change_async(changed_path: str, session: AthenaSession):
+        env = environment or internal_get_environment(root)
+        if file.should_ignore_file(changed_path):
+            return
+        await athena_run.run_modules(root, [changed_path], env, module_callback, session)
+
+    async def inner():
+        async with AthenaSession() as session:
+            # retrieve the loop from the main thread
+            loop = asyncio.get_event_loop()
+            def on_change(changed_path: str):
+                try:
+                    asyncio.run_coroutine_threadsafe(on_change_async(changed_path, session), loop).result()
+                except Exception as e:
+                    sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
+            click.echo(f'Starting to watch `{root}`. Press ^C to stop.')
+            await athena_watch_async(root, 0.1, on_change)
+
+    asyncio.run(inner())
+
+@athena.command()
 @click.argument('paths', type=str, nargs=-1)
 @click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
 @click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
-def responses(paths: list[str], environment: str | None, verbose: bool):
+@click.option('-p', '--plain', is_flag=True, help="format output as plain json")
+def responses(paths: list[str], environment: str | None, verbose: bool, plain: bool):
     """
     Run one or more modules and print the response traces.
     
@@ -442,32 +461,64 @@ def responses(paths: list[str], environment: str | None, verbose: bool):
     if (verbose):
         logging.root.setLevel(logging.INFO)
 
-    run_modules_and(
-            paths,
-            force_environment=environment,
-            module_callback=lambda _, result: click.echo(f"{display.responses(result)}"))
+    if plain:
+        module_callback = lambda _, result: click.echo(f"{display.trace_plain(result, include_requests=False, include_responses=True)}")
+    else:
+        module_callback = lambda _, result: click.echo(f"{display.trace(result, include_requests=False, include_responses=True)}")
+
+    run_modules_and(paths, force_environment=environment, module_callback=module_callback)
 
 @athena.command()
 @click.argument('paths', type=str, nargs=-1)
+@click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
 @click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
-def trace(paths: list[str], environment: str | None):
+@click.option('-p', '--plain', is_flag=True, help="format output as plain json")
+def requests(paths: list[str], environment: str | None, verbose: bool, plain: bool):
+    """
+    Run one or more modules and print the request traces.
+    
+    PATH - Path to file or directory of modules to watch.
+    """
+    if (verbose):
+        logging.root.setLevel(logging.INFO)
+
+    if plain:
+        module_callback = lambda _, result: click.echo(f"{display.trace_plain(result, include_requests=True, include_responses=False)}")
+    else:
+        module_callback = lambda _, result: click.echo(f"{display.trace(result, include_requests=True, include_responses=False)}")
+
+    run_modules_and(paths, force_environment=environment, module_callback=module_callback)
+
+@athena.command()
+@click.argument('paths', type=str, nargs=-1)
+@click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
+@click.option('-e', '--environment', type=str, help="environment to run tests against", default=None)
+@click.option('-p', '--plain', is_flag=True, help="format output as plain json")
+def traces(paths: list[str], environment: str | None, verbose: bool, plain: bool):
     """
     Run one or more modules and print the full traces.
     
     PATH - Path to file or directory of modules to watch.
     """
-    results = []
-    run_modules_and(
-            paths,
-            force_environment=environment,
-            module_callback=lambda _, result: results.append(result.as_serializable()))
-    click.echo(f"{jsonify(results)}")
+    if (verbose):
+        logging.root.setLevel(logging.INFO)
+
+    if plain:
+        module_callback = lambda _, result: click.echo(f"{display.trace_plain(result, include_requests=True, include_responses=True)}")
+    else:
+        module_callback = lambda _, result: click.echo(f"{display.trace(result, include_requests=True, include_responses=True)}")
+
+    run_modules_and(paths, force_environment=environment, module_callback=module_callback)
 
 def main():
     try:
         athena()
     except AthenaException as e:
         sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
+        sys.exit(1)
+    except QuietException as e:
+        if e.message is not None:
+            sys.stderr.write(f"{e.message}\n")
         sys.exit(1)
 
 if __name__ == "__main__":

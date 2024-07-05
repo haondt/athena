@@ -125,10 +125,20 @@ traceme •
 │
 ```
 
-The [`trace`](../reference#trace) command can also be used to just print out the raw exceution trace of a module.
+The commands [`requests`](../reference#requests) and [`traces`](../reference#traces) can be used in a similar manner, to get just the request data, or the request and response data, respectively. All three commands also have a `--plain` option to output the trace information as a json object.
 
 ```sh
-$ athena trace traceme.py | jq .
+$ athena trace -p traceme.py | jq .
+{
+  "success": true,
+  "athena_traces": [
+    {
+      "id": "63f6d990-d49e-4f3d-9527-c5a82136fde2",
+      "response": {
+        "headers": {
+          "Access-Control-Allow-Origin": "*",
+          "Content-Type": "application/json",
+...
 ```
 
 ### Watching a Directory
@@ -139,13 +149,11 @@ The [`watch`](../reference#watch) command can be used to create a long-running t
 athena watch .
 ```
 
-`responses` is the default command to use, but an alternative command can be supplied.
+`responses` is the default command to use, but an alternative command can be supplied. If one of the tracing commands is given (`responses`, `requests`, `traces`), then the `--plain` flag may also optionally be supplied.
 
 ```sh
 athena watch -c run .
 ```
-
-This command will also use a pooled http client session where possible. 
 
 ## Application state
 
