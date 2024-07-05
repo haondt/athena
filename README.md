@@ -10,15 +10,42 @@ $ pip install haondt-athena
 $ athena init
 $ cat << EOF > athena/hello.py
 from athena.client import Athena
-from athena.test import athert
 
 def run(athena: Athena):
     client = athena.client()
-    response = client.get('https://example.com')
-    athert(response.status_code).equals(200)
+    client.get('http://echo.jsontest.com/key/value')
 EOF
-$ athena run athena/hello.py
-hello: passed
+$ athena responses athena/hello.py
+hello •
+│ execution
+│ │ environment: __default__
+│
+│ timings
+│ │ http://echo...m/key/value    ························ 470ms
+│
+│ traces
+│ │ http://echo.jsontest.com/key/value
+│ │ │ │ GET http://echo.jsontest.com/key/value
+│ │ │ │ 200 OK 470ms
+│ │ │
+│ │ │ response
+│ │ │ │ headers
+│ │ │ │ │ Access-Control-Allow-Origin | *
+│ │ │ │ │ Content-Type                | application/json
+│ │ │ │ │ X-Cloud-Trace-Context       | 35b9c247eaaa4175c1949b97dd13548a
+│ │ │ │ │ Date                        | Fri, 05 Jul 2024 20:33:16 GMT
+│ │ │ │ │ Server                      | Google Frontend
+│ │ │ │ │ Content-Length              | 17
+│ │ │ │
+│ │ │ │ body | application/json [json] 17B
+│ │ │ │ │ 1 {
+│ │ │ │ │ 2   "key": "value"
+│ │ │ │ │ 3 }
+│ │ │ │ │
+│ │ │ │
+│ │ │
+│ │
+│
 ```
 
 athena provides a lightweight alternative to full-blown api platforms like Postman with a few key advantages:
