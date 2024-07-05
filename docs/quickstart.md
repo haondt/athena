@@ -23,6 +23,8 @@ This will create an `athena` directory with some files to get you started.
 └── athena
     ├── .athena
     ├── .gitignore
+    ├── my_module.py
+    ├── fixture.py
     ├── variables.yml
     └── secrets.yml
 ```

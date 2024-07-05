@@ -3,7 +3,7 @@ import os, yaml, re, glob
 
 from .exceptions import AthenaException
 
-def init(base_dir: str):
+def init(base_dir: str, bare: bool):
     base_dir = os.path.abspath(base_dir)
     base_dir = os.path.normpath(base_dir)
     if not os.path.exists(base_dir):
@@ -16,6 +16,9 @@ def init(base_dir: str):
     os.mkdir(path)
     with open(os.path.join(path, ".athena"), "w") as f:
         pass
+    if bare:
+        return path
+
     with open(os.path.join(path, ".gitignore"), "w") as f:
         f.write("__pycache__/\nsecrets.yml\n.cache\n.history\n")
     return path

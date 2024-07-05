@@ -4,6 +4,8 @@ import click
 import logging
 from typing import Callable
 
+from .defaults import DEFAULT_FIXTURE_FILE_CONTENTS, DEFAULT_MODULE_FILE_CONTENTS, DEFAULT_SECRET_FILE_CONTENTS, DEFAULT_VARIABLE_FILE_CONTENTS
+
 from .client import AthenaSession
 
 from .resource import DEFAULT_ENVIRONMENT_KEY, create_sample_resource_file
@@ -38,20 +40,22 @@ def athena():
     file_okay=False,
     writable=True
     ), required=False)
-def init(path: str | None):
+@click.option('-b', '--bare', is_flag=True, help='initialize project without example files')
+def init(path: str | None, bare: bool):
     """
     Initializes an athena project at PATH/athena
     """
-    root = file.init(path or os.getcwd())
+    root = file.init(path or os.getcwd(), bare)
     state = athena_state.init()
     athena_state.save(root, state)
 
-    create_sample_resource_file(os.path.join(root, 'variables.yml'), {
-        'my_variable': { '__default__': 'my value'}
-        })
-    create_sample_resource_file(os.path.join(root, 'secrets.yml'), {
-        'my_secret': { '__default__': 'my secret value'}
-        })
+    if not bare:
+        create_sample_resource_file(os.path.join(root, 'variables.yml'), DEFAULT_VARIABLE_FILE_CONTENTS)
+        create_sample_resource_file(os.path.join(root, 'secrets.yml'), DEFAULT_SECRET_FILE_CONTENTS)
+        with open(os.path.join(root, 'my_module.py'), 'w') as f:
+            f.write(DEFAULT_MODULE_FILE_CONTENTS)
+        with open(os.path.join(root, 'fixture.py'), 'w') as f:
+            f.write(DEFAULT_FIXTURE_FILE_CONTENTS)
 
     click.echo(f'Created athena project at: `{root}`')
 

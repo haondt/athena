@@ -13,10 +13,24 @@ $ tree -a athena
 athena
 ├── .athena
 ├── .gitignore
+├── my_module.py
+├── fixture.py
 ├── secrets.yml
 └── variables.yml
 
-0 directories, 4 files
+0 directories, 6 files
+```
+
+The `--bare` option can also be supplied to omit any optional files.
+
+```sh
+$ athena init --bare
+Created athena project at: `/home/haondt/athena`
+$ tree -a athena
+athena
+└── .athena
+
+0 directories, 1 file
 ```
 
 ## Running modules
@@ -37,7 +51,7 @@ If the module fails to complete, the output will display the errors.
 
 ```sh
 my_module: failed
-    │ File "/home/haondt/example/athena/my_module.py", line 23, in run
+    │ File "/home/haondt/athena/my_module.py", line 23, in run
     │     raise Exception("I failed :(")
     │
     │ Exception: I failed :(
