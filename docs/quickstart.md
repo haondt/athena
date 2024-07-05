@@ -60,25 +60,27 @@ hello •
 │ │ environment: __default__
 │
 │ timings
-│ │ http://echo...m/key/value    ························ 431ms
+│ │ http://echo...m/key/value    ························ 470ms
 │
 │ traces
 │ │ http://echo.jsontest.com/key/value
 │ │ │ │ GET http://echo.jsontest.com/key/value
-│ │ │ │ 200 OK 431ms
+│ │ │ │ 200 OK 470ms
 │ │ │
-│ │ │ headers
-│ │ │ │ Access-Control-Allow-Origin | *
-│ │ │ │ Content-Type                | application/json
-│ │ │ │ X-Cloud-Trace-Context       | cfca39362fd31539e246341cda420c14
-│ │ │ │ Date                        | Sat, 15 Jun 2024 19:44:54 GMT
-│ │ │ │ Server                      | Google Frontend
-│ │ │ │ Content-Length              | 17
-│ │ │
-│ │ │ body | application/json [json] 17B
-│ │ │ │ 1 {
-│ │ │ │ 2   "key": "value"
-│ │ │ │ 3 }
+│ │ │ response
+│ │ │ │ headers
+│ │ │ │ │ Access-Control-Allow-Origin | *
+│ │ │ │ │ Content-Type                | application/json
+│ │ │ │ │ X-Cloud-Trace-Context       | 35b9c247eaaa4175c1949b97dd13548a
+│ │ │ │ │ Date                        | Fri, 05 Jul 2024 20:33:16 GMT
+│ │ │ │ │ Server                      | Google Frontend
+│ │ │ │ │ Content-Length              | 17
+│ │ │ │
+│ │ │ │ body | application/json [json] 17B
+│ │ │ │ │ 1 {
+│ │ │ │ │ 2   "key": "value"
+│ │ │ │ │ 3 }
+│ │ │ │ │
 │ │ │ │
 │ │ │
 │ │
