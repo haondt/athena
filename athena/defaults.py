@@ -1,8 +1,11 @@
 
-DEFAULT_VARIABLE_FILE_CONTENTS = {
+_resource_value_type = str | int | float | bool | None
+_resource_type = dict[str, dict[str, _resource_value_type]]
+
+DEFAULT_VARIABLE_FILE_CONTENTS: _resource_type = {
     'my_variable': { '__default__': 'my value' }
 }
-DEFAULT_SECRET_FILE_CONTENTS = {
+DEFAULT_SECRET_FILE_CONTENTS: _resource_type = {
     'my_secret': { '__default__': 'my secret value' }
 }
 DEFAULT_MODULE_FILE_CONTENTS = '''from athena.client import Athena, Client

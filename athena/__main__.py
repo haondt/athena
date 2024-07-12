@@ -22,7 +22,7 @@ from .exceptions import AthenaException, QuietException
 from .format import colors, color
 from . import display
 from .athena_json import jsonify, dejsonify
-from .watch import watch_async as athena_watch_async
+from .watch import watch_async as athena_watch_async, EVENT_TYPE_MODIFIED
 
 LOG_TEMPLATE = '[%(levelname)s] %(name)s: %(message)s'
 logging.basicConfig(format=LOG_TEMPLATE, level=100)
@@ -441,7 +441,11 @@ def watch(path: str | None, environment: str | None, command: str, verbose: bool
         async with AthenaSession() as session:
             # retrieve the loop from the main thread
             loop = asyncio.get_event_loop()
-            def on_change(changed_path: str):
+            def on_change(event_type: str, changed_path: str):
+                if file.is_resource_file(changed_path):
+                    session.resource_loader.clear_cache()
+                if event_type != EVENT_TYPE_MODIFIED:
+                    return
                 try:
                     asyncio.run_coroutine_threadsafe(on_change_async(changed_path, session), loop).result()
                 except Exception as e:

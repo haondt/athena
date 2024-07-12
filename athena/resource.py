@@ -141,3 +141,8 @@ class ResourceLoader:
                 result[k][_k] = _v
         return result, ""
 
+    def clear_cache(self):
+        if not self._cache:
+            return
+        self.loaded_resources = {}
+        self.explored_files = {}

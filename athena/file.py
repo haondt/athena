@@ -91,6 +91,17 @@ def should_ignore_file(path: str):
             return True
     return False
 
+def is_resource_file(path: str):
+    if not path.endswith('secrets.yml') or path.endswith('variables.yml'):
+        return True
+    parts = path.split(os.pathsep)
+    for part in parts:
+        if part.startswith('__'):
+            return True
+        if part.startswith('.'):
+            return True
+    return False
+
 def import_yaml(file) -> object:
      return yaml.load(file, Loader=yaml.FullLoader)
 
