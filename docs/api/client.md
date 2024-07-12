@@ -4,3 +4,4 @@
             - Athena
             - Context
             - jsonify
+            - ResourceFacade

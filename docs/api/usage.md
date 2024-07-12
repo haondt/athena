@@ -107,7 +107,12 @@ athena will provide variables and secrets to the module under test through the `
 
 ```python
 def run(athena: Athena):
-    password = athena.secret("password")
+    # will return `None` if no such variable exists
+    username = athena.variable.get('username')
+    # will throw error if no such secret exists
+    password = athena.secret['password']
+    # will use default value if no such variable exists
+    email = athena.variable.get('email', default='foo@bar.baz')
 ```
 
 This will reference the `variables.yml` and `secrets.yml` environment files. athena will select all variable or secret files that can be found in any ancestor directory of the module being run (up to the athena root directory). For example, if we are running the following module:
@@ -166,8 +171,8 @@ from athena.client import Fixture, Athena
 
 def fixture(fixture: Fixture):
     def build_client(athena: Athena):
-        base_url = athena.variable("base_url")
-        api_key = athena.secret("api_key")
+        base_url = athena.variable["base_url"]
+        api_key = athena.secret["api_key"]
 
         client = athena.client(lambda b: b
             .base_url(base_url)

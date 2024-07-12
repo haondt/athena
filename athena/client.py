@@ -1,7 +1,7 @@
 import aiohttp
 import requests
 
-from .resource import ResourceLoader, try_extract_value_from_resource, _resource_type
+from .resource import ResourceLoader, try_extract_value_from_resource, _resource_type, _resource_value_type
 from .exceptions import AthenaException
 from typing import Any, Callable, Protocol
 from .trace import AthenaTrace, ResponseTrace, RequestTrace, LinkedRequest, LinkedResponse
@@ -11,6 +11,49 @@ from .fake import Fake
 from json import dumps as json_dumps
 from contextlib import AsyncExitStack
 import inspect
+
+class ResourceFacade:
+    def __init__(self, loader: Callable[[], _resource_type], resource_type: str, environment: str):
+        self._loader = loader
+        self._resource_type = resource_type
+        self._environment = environment
+
+    def _load_resource(self, name) -> _resource_value_type:
+        success, value = self._try_load_resource(name)
+        if success:
+            return str(value)
+
+        raise AthenaException(f"unable to find {self._resource_type} \"{name}\" with environment \"{self._environment}\". ensure {self._resource_type}s have at least a default environment.")
+
+    def _try_load_resource(self, name) -> tuple[bool, _resource_value_type]:
+        resource = self._loader()
+        return try_extract_value_from_resource(resource, name, self._environment)
+
+    def __getitem__(self, key) -> _resource_value_type:
+        """Get value by name. Throws an error if the key cannot be found.
+
+        Args:
+            key (str): Name of resource to retrieve.
+
+        Returns:
+            _resource_value_type: value
+        """
+        return self._load_resource(key)
+
+    def get(self, key, default: _resource_value_type | None=None) -> _resource_value_type | None:
+        """Get value by name. Returns default value if key cannot be found.
+
+        Args:
+            key (str): Name of resource to retrieve.
+            default (_resource_value_type | None): Default value
+
+        Returns:
+            _resource_value_type | None: value
+        """
+        success, value = self._try_load_resource(key)
+        if success:
+            return value
+        return default
 
 class _Fixture:
     def __init__(self):
@@ -144,6 +187,8 @@ class Athena:
         cache (Cache): persistent key (`str`) - value (`str`, `int`, `float`, `bool`) cache
         context (Context): information about the runtime environment of the module
         fake (Fake): generate randomized data
+        variable (ResourceFacade): get a variable by name
+        secret (ResourceFacade): get a secret by name
     """
     def __init__(self,
         context: Context,
@@ -159,39 +204,12 @@ class Athena:
         self.cache = Cache(cache_values)
         self.context = context
         self.fake = Fake()
-
-    def variable(self, name: str) -> str:
-        """Get a variable by name.
-
-        Args:
-            name (str): Name of variable to retrieve.
-
-        Returns:
-            str: Variable value.
-        """
-        return self.__resource(name, self.__session.resource_loader.load_variables, 'variable')
-
-    def secret(self, name: str) -> str:
-        """Get a secret by name.
-
-        Args:
-            name (str): Name of secret to retrieve.
-
-        Returns:
-            str: secret value.
-        """
-        return self.__resource(name, self.__session.resource_loader.load_secrets, 'secret')
-
-    def __resource(self, name: str, resource_loading_method: Callable[[str, str], _resource_type], resource_type: str) -> str:
-        root = self.context.root_path
-
-        resource = resource_loading_method(root, self.context.module_path)
-        success, value = try_extract_value_from_resource(resource, name, self.context._environment)
-        if success:
-            return str(value)
-
-        raise AthenaException(f"unable to find {resource_type} \"{name}\" with environment \"{self.context.environment}\". ensure {resource_type}s have at least a default environment.")
-
+        self.variable = ResourceFacade(
+            lambda: self.__session.resource_loader.load_variables(self.context.root_path, self.context.module_path),
+            'variable', self.context.environment)
+        self.secret = ResourceFacade(
+            lambda: self.__session.resource_loader.load_secrets(self.context.root_path, self.context.module_path),
+            'secret', self.context.environment)
 
     def __client_pre_hook(self, trace_id: str) -> None:
         self.__history.append(trace_id)
