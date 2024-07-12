@@ -21,11 +21,11 @@ def test_timeout(setup_athena):
         f.write(code)
 
     start = time.time()
-    result = subprocess.run(['athena', 'trace', filename], cwd=athena_dir, capture_output=True, text=True)
+    result = subprocess.run(['athena', 'traces', '-p', filename], cwd=athena_dir, capture_output=True, text=True)
     end = time.time()
 
     assert result.returncode == 0
-    trace = json.loads(result.stdout)[0]
+    trace = json.loads(result.stdout)
     assert trace['success'] == False
     assert 'ReadTimeout' in trace['error']
     duration = end - start
@@ -42,10 +42,10 @@ def test_param(setup_athena):
     with open(os.path.join(athena_dir, filename), 'w') as f:
         f.write(code)
 
-    result = subprocess.run(['athena', 'trace', filename], cwd=athena_dir, capture_output=True, text=True)
+    result = subprocess.run(['athena', 'traces', '-p', filename], cwd=athena_dir, capture_output=True, text=True)
 
     assert result.returncode == 0
-    trace = json.loads(result.stdout)[0]
+    trace = json.loads(result.stdout)
     print(trace)
     assert trace['success'] == True
     response = trace['athena_traces'][0]['response']
