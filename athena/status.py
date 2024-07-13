@@ -11,8 +11,8 @@ def search_environments(root: str) -> list[str]:
     variables = loader.load_all_variables(root)
                         # aggregated_resource.values[f'{relpath}.{key}.{environment}'] = value
     all_environments: set[str] = set()
-    for key in list(secrets.values.keys()) + list(variables.values.keys()):
-        all_environments.add(key.split('.')[-1])
+    for value in secrets.values + variables.values:
+        all_environments.add(value.environment)
 
     return list(all_environments)
 
