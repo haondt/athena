@@ -263,16 +263,28 @@ def export():
     pass
 
 @export.command(name='secrets')
-def export_secrets():
-    current_dir = os.path.normpath(os.getcwd())
-    root = file.find_root(current_dir)
+@click.argument('path', type=str, required=False)
+def export_secrets(path: str | None):
+    """
+    Export all secrets in the athena project
+
+    PATH - Path to athena project
+    """
+    path = path or os.getcwd()
+    root = file.find_root(path)
     secrets = athena_status.collect_secrets(root)
     click.echo(jsonify(secrets, reversible=True))
 
 @export.command(name='variables')
-def export_variables():
-    current_dir = os.path.normpath(os.getcwd())
-    root = file.find_root(current_dir)
+@click.argument('path', type=str, required=False)
+def export_variables(path: str | None):
+    """
+    Export all variables in the athena project
+
+    PATH - Path to athena project
+    """
+    path = path or os.getcwd()
+    root = file.find_root(path)
     variables = athena_status.collect_variables(root)
     click.echo(jsonify(variables, reversible=True))
 

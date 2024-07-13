@@ -37,11 +37,21 @@ def _merge_resources(r1: _resource_type, r2: _resource_type, conflicts="new") ->
             raise KeyError(f"Multiple entries found for key: .{k}")
     return result
 
+
+@serializeable
+@deserializeable
+class ScopedResourceValue:
+    def __init__(self, path: str, key: str, environment: str, value: _resource_value_type):
+        self.path = path
+        self.key = key
+        self.environment = environment
+        self.value = value
+
 @serializeable
 @deserializeable
 class AggregatedResource:
     def __init__(self):
-        self.values: dict[str, _resource_value_type] = {}
+        self.values: list[ScopedResourceValue] = []
 
 class ResourceLoader:
     def __init__(self, cache: bool=True):
@@ -75,7 +85,7 @@ class ResourceLoader:
                 for environment, value in entry.items():
                     if value != {}:
                         relpath = os.path.relpath(path, root)
-                        aggregated_resource.values[f'{relpath}.{key}.{environment}'] = value
+                        aggregated_resource.values.append(ScopedResourceValue(relpath, key, environment, value))
         return aggregated_resource
 
     
