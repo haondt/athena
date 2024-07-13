@@ -85,10 +85,10 @@ class ResourceLoader:
     def load_variables(self, root: str, module_path: str):
         return self.__load_and_merge_resources(root, module_path, 'variables.yml')
 
-    def load_all_secrets(self, root: str):
+    def load_all_secrets(self, root: str) -> AggregatedResource:
         return self.__load_and_aggregate_all_resources(root, 'secrets.yml')
 
-    def load_all_variables(self, root: str):
+    def load_all_variables(self, root: str) -> AggregatedResource:
         return self.__load_and_aggregate_all_resources(root, 'variables.yml')
 
     def __load_or_cache_file(self, file_path: str) -> _resource_type:

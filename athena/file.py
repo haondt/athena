@@ -41,23 +41,17 @@ def find_root(current_dir: str):
         current_depth += 1
 
 
-def __search_for_python_files(root: str, current_name=""):
-    contents = {}
-    for item in os.listdir(root):
-        full_path = os.path.join(root, item)
-        full_name = f"{current_name}.{item}"
-        if current_name == "":
-            full_name = f"{item}"
-        if os.path.isfile(full_path) and item.endswith(".py"):
-            contents[full_name[:-3]] = full_path
-        elif os.path.isdir(full_path) and not (
-            item.startswith(".")
-            or item.startswith("__")):
-            sub_contents = __search_for_python_files(full_path, full_name)
-            contents |= sub_contents
-    return contents
+def search_modules(root: str):
+    files = glob.glob(os.path.join(root, "**/*.py"), recursive=True)
+    return [f for f in files if os.path.isfile(f) and is_athena_module(f)]
 
+def search_secrets(root: str):
+    files = glob.glob(os.path.join(root, f"**/secrets.yml"), recursive=True)
+    return [f for f in files if os.path.isfile(f) and is_resource_file(f)]
 
+def search_variables(root: str):
+    files = glob.glob(os.path.join(root, f"**/variables.yml"), recursive=True)
+    return [f for f in files if os.path.isfile(f) and is_resource_file(f)]
 
 def search_module_half_ancestors(root: str, module_path: str, ancestor_name: str):
     output = []
@@ -78,29 +72,29 @@ def search_module_half_ancestors(root: str, module_path: str, ancestor_name: str
         check_and_add_ancestor(relpath)
     return output
 
-def should_ignore_file(path: str):
+def is_athena_module(path: str):
     if not path.endswith('.py'):
-        return True
+        return False
     if path.endswith('fixture.py'):
-        return True
-    parts = path.split(os.pathsep)
+        return False
+    parts = path.split(os.path.sep)
     for part in parts:
         if part.startswith('__'):
-            return True
+            return False
         if part.startswith('.'):
-            return True
-    return False
+            return False
+    return True
 
 def is_resource_file(path: str):
-    if not path.endswith('secrets.yml') or path.endswith('variables.yml'):
-        return True
-    parts = path.split(os.pathsep)
+    if not (path.endswith('secrets.yml') or path.endswith('variables.yml')):
+        return False
+    parts = path.split(os.path.sep)
     for part in parts:
         if part.startswith('__'):
-            return True
+            return False
         if part.startswith('.'):
-            return True
-    return False
+            return False
+    return True
 
 def import_yaml(file) -> object:
      return yaml.load(file, Loader=yaml.FullLoader)

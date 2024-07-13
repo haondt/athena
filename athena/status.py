@@ -5,29 +5,21 @@ from .exceptions import AthenaException
 from .resource import ResourceLoader, DEFAULT_ENVIRONMENT_KEY, _resource_value_type, _resource_type, AggregatedResource
 from . import file
 
-def search_environments(root: str, module_paths: list[str]):
+def search_environments(root: str) -> list[str]:
     loader = ResourceLoader()
-    def extract_environments(resource):
-        environments = []
-        if resource is not None:
-            for value_set in resource.values():
-                if value_set is not None:
-                    for environment in value_set.keys():
-                        if environment != DEFAULT_ENVIRONMENT_KEY:
-                            environments.append(environment)
-        return set(environments)
-    all_environments = set()
-    for path in module_paths:
-        secrets = loader.load_secrets(root, path)
-        variables = loader.load_variables(root, path)
-        all_environments |= extract_environments(secrets)
-        all_environments |= extract_environments(variables)
-    return list(all_environments)
+    secrets = loader.load_all_secrets(root)
+    variables = loader.load_all_variables(root)
+                        # aggregated_resource.values[f'{relpath}.{key}.{environment}'] = value
+    all_environments: set[str] = set()
+    for key in list(secrets.values.keys()) + list(variables.values.keys()):
+        all_environments.add(key.split('.')[-1])
 
+    return list(all_environments)
 
 def collect_secrets(root: str) -> AggregatedResource:
     loader = ResourceLoader()
     return loader.load_all_secrets(root)
+
 def collect_variables(root: str) -> AggregatedResource:
     loader = ResourceLoader()
     return loader.load_all_variables(root)

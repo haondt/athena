@@ -163,15 +163,15 @@ def run_modules_and(
         ignored_paths = []
         selected_paths = []
         for path in paths:
-            if file.should_ignore_file(path):
-                ignored_paths.append(path)
-            else:
+            if file.is_athena_module(path):
                 selected_paths.append(path)
+            else:
+                ignored_paths.append(path)
         paths_string = '\n'.join(ignored_paths)
         _logger.info(f'ignoring the following paths:\n{paths_string}')
         paths = selected_paths
     else:
-        paths = [p for p in paths if not file.should_ignore_file(p)]
+        paths = [p for p in paths if file.is_athena_module(p)]
 
     module_paths_by_root = {}
     for path in paths:
@@ -235,18 +235,25 @@ def status(path: str | None):
     
     PATH - Path to file or directory of modules to watch.
     """
-    raise AthenaException('Not implemeneted')
 
     path = path or os.getcwd()
     root = file.find_root(path)
-    modules = file.search_modules(path)
+
+    modules = file.search_modules(root)
+    secrets = file.search_secrets(root)
+    variables = file.search_variables(root)
+    environments = athena_status.search_environments(root)
+
+    click.echo(f"root: {root}")
     click.echo("modules:")
     click.echo("\n".join(["  " + i for i in modules]))
-    environments = athena_status.search_environments(root, modules)
+    click.echo("secret files:")
+    click.echo("\n".join(["  " + i for i in secrets]))
+    click.echo("variable files:")
+    click.echo("\n".join(["  " + i for i in variables]))
     click.echo("environments:")
     click.echo("\n".join(["  " + i for i in environments]))
-    click.echo("default environment:")
-    click.echo(f"  {internal_get_environment(root) or 'None'}")
+    click.echo(f"default environment: {internal_get_environment(root)}")
 
 @athena.group()
 def export():
@@ -433,7 +440,7 @@ def watch(path: str | None, environment: str | None, command: str, verbose: bool
 
     async def on_change_async(changed_path: str, session: AthenaSession):
         env = environment or internal_get_environment(root)
-        if file.should_ignore_file(changed_path):
+        if not file.is_athena_module(changed_path):
             return
         await athena_run.run_modules(root, [changed_path], env, module_callback, session)
 
