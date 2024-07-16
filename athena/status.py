@@ -1,15 +1,11 @@
-from typing import Callable
 import os
 
-from .exceptions import AthenaException
-from .resource import ResourceLoader, DEFAULT_ENVIRONMENT_KEY, _resource_value_type, _resource_type, AggregatedResource
-from . import file
+from .resource import ResourceLoader, DEFAULT_ENVIRONMENT_KEY, _resource_value_type, _resource_type, AggregatedResource, dump_resource_file, load_resource_file, merge_resources, update_resource
 
 def search_environments(root: str) -> list[str]:
     loader = ResourceLoader()
     secrets = loader.load_all_secrets(root)
     variables = loader.load_all_variables(root)
-                        # aggregated_resource.values[f'{relpath}.{key}.{environment}'] = value
     all_environments: set[str] = set()
     for value in secrets.values + variables.values:
         all_environments.add(value.environment)
@@ -25,139 +21,79 @@ def collect_variables(root: str) -> AggregatedResource:
     return loader.load_all_variables(root)
 
 class DryRunApplyResult:
-    def __init__(self, new_directories: list[str], overwritten_values: list[str], new_values: list[str]):
-        self.new_directories = new_directories
+    def __init__(self, overwritten_values: list[str], new_values: list[str]):
         self.overwritten_values = overwritten_values
         self.new_values = new_values
 
-def _dry_run_apply_resource(
-        root: str,
-        resource: AggregatedResource,
-        workspace_loader: Callable[[str, str], _resource_type],
-        collection_loader: Callable[[str, str, str], _resource_type]
-        ) -> DryRunApplyResult:
-    created_workspaces: set[str] = set()
-    created_collections: set[str] = set()
-    overwritten_values: set[str] = set()
-    added_values: set[str] = set()
-
-    existing_workspaces: set[str] = set()
-    existing_collections: set[str] = set()
-
-    existing_dirs = list(file.list_directories(root).keys())
-    for dir_key in existing_dirs:
-        parsed_key = _parse_resource_key(dir_key)
-        existing_workspaces.add(parsed_key.workspace)
-        if parsed_key.collection is not None:
-            existing_collections.add(f"{parsed_key.workspace}:{parsed_key.collection}")
-
-    existing_data = _collect_resource(root, existing_dirs, workspace_loader, collection_loader).values.keys()
-
-    for key in resource.values.keys():
-        if key in existing_data:
-            overwritten_values.add(key)
-        else:
-            parsed_key = _parse_resource_key(key)
-            new_dir = False
-            if parsed_key.workspace not in existing_workspaces:
-                created_workspaces.add(parsed_key.workspace)
-                new_dir = True
-            if parsed_key.collection is not None:
-                collection_key = f"{parsed_key.workspace}:{parsed_key.collection}"
-                if collection_key not in existing_collections:
-                    created_collections.add(collection_key)
-                    new_dir = True
-            if not new_dir:
-                added_values.add(key)
-
-    return DryRunApplyResult(
-            list(created_workspaces), 
-            list(created_collections),
-            list(overwritten_values),
-            list(added_values))
+class ApplyResult:
+    def __init__(self, errors: list[str]):
+        self.errors = errors
 
 def dry_run_apply_secrets(
         root: str,
         secrets: AggregatedResource
         ) -> DryRunApplyResult:
     loader = ResourceLoader()
-    return _dry_run_apply_resource(root, secrets, loader.load_workspace_secrets, loader.load_collection_secrets)
+    existing_secrets = loader.load_all_secrets(root)
+
+    flattened_incoming_secrets = secrets.flatten()
+    flattened_existing_secrets = existing_secrets.flatten()
+
+    changed_values: list[str] = []
+    new_values: list[str] = []
+    for k, v in flattened_incoming_secrets.items():
+        if k in flattened_existing_secrets:
+            if flattened_existing_secrets[k] == v:
+                continue
+            changed_values.append(k)
+            continue
+        new_values.append(k)
+    return DryRunApplyResult(
+        changed_values,
+        new_values
+    )
 
 def dry_run_apply_variables(
         root: str,
         variables: AggregatedResource
         ) -> DryRunApplyResult:
     loader = ResourceLoader()
-    return _dry_run_apply_resource(root, variables, loader.load_workspace_variables, loader.load_collection_variables)
+    existing_variables = loader.load_all_variables(root)
 
-def _apply_resource(
+    flattened_incoming_variables = variables.flatten()
+    flattened_existing_variables = existing_variables.flatten()
+
+    changed_values: list[str] = []
+    new_values: list[str] = []
+    for k, v in flattened_incoming_variables.items():
+        if k in flattened_existing_variables:
+            if flattened_existing_variables[k] == v:
+                continue
+            changed_values.append(k)
+            continue
+        new_values.append(k)
+    return DryRunApplyResult(
+        changed_values,
+        new_values
+    )
+
+def apply_resource(
     root: str,
     resource: AggregatedResource,
-    resource_name: str,
-    no_cache_workspace_loader: Callable[[str, str], _resource_type],
-    no_cache_collection_loader: Callable[[str, str, str], _resource_type]
 ):
+    files_to_write: dict[str, _resource_type] = {}
+    errors: list[str] = []
 
-    existing_workspaces: set[str] = set()
-    existing_collections: set[str] = set()
+    for value in resource.values:
+        path = os.path.join(root, value.path)
+        if path not in files_to_write:
+            files_to_write[path] = load_resource_file(path)
+        update_resource(files_to_write[path], value)
 
-    existing_dirs = list(file.list_directories(root).keys())
-    for dir_key in existing_dirs:
-        parsed_key = _parse_resource_key(dir_key)
-        existing_workspaces.add(parsed_key.workspace)
-        if parsed_key.collection is not None:
-            existing_collections.add(f"{parsed_key.workspace}:{parsed_key.collection}")
+    for path, value in files_to_write.items():
+        try:
+            dump_resource_file(path, value)
+        except Exception as e:
+            errors.append(f'Error while updating resource file {path}: {e}')
+    return ApplyResult(errors)
 
-    def set_value(resource_path: str, loader: Callable[[], _resource_type], name: str, environment: str, value: _resource_value_type):
-        resource = loader()
-        if name not in resource:
-            resource[name] = {}
-        resource[name][environment] = value
-        with open(resource_path, "w") as f:
-            f.write(file.export_yaml({f"{resource_name}": resource}))
-
-    for key, value in resource.values.items():
-        parsed_key = _parse_resource_key(key)
-
-        if parsed_key.workspace not in existing_workspaces:
-            file.create_workspace(root, parsed_key.workspace)
-            existing_workspaces.add(parsed_key.workspace)
-
-        if parsed_key.collection is None:
-            assert parsed_key.workspace_name is not None
-            assert parsed_key.workspace_environment is not None
-            set_value(
-                    os.path.join(root, parsed_key.workspace, f"{resource_name}.yml"),
-                    lambda: no_cache_workspace_loader(root, parsed_key.workspace),
-                    parsed_key.workspace_name,
-                    parsed_key.workspace_environment,
-                    value)
-        else:
-            assert parsed_key.collection_name is not None
-            assert parsed_key.collection_environment is not None
-            collection_key = f"{parsed_key.workspace}:{parsed_key.collection}"
-            if collection_key not in existing_collections:
-                file.create_collection(root, parsed_key.workspace, parsed_key.collection)
-                existing_collections.add(collection_key)
-
-            collection = parsed_key.collection
-            set_value(
-                    os.path.join(root, parsed_key.workspace, "collections", parsed_key.collection, f"{resource_name}.yml"),
-                    lambda: no_cache_collection_loader(root, parsed_key.workspace, collection),
-                    parsed_key.collection_name,
-                    parsed_key.collection_environment,
-                    value)
-
-def apply_secrets(
-    root: str,
-    secrets: AggregatedResource,
-):
-    loader = ResourceLoader(cache=False)
-    return _apply_resource(root, secrets, "secrets", loader.load_workspace_variables, loader.load_collection_variables)
-
-def apply_variables(
-    root: str,
-    variables: AggregatedResource,
-):
-    loader = ResourceLoader(cache=False)
-    return _apply_resource(root, variables, "variables", loader.load_workspace_variables, loader.load_collection_variables)

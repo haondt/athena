@@ -1,4 +1,5 @@
 import asyncio
+from io import IOBase
 import sys, os
 import click
 import logging
@@ -8,7 +9,7 @@ from .defaults import DEFAULT_FIXTURE_FILE_CONTENTS, DEFAULT_MODULE_FILE_CONTENT
 
 from .client import AthenaSession
 
-from .resource import DEFAULT_ENVIRONMENT_KEY, create_sample_resource_file
+from .resource import DEFAULT_ENVIRONMENT_KEY, AggregatedResource, dump_resource_file
 
 from .run import ExecutionTrace
 
@@ -18,6 +19,7 @@ from . import history
 from . import state as athena_state
 from . import run as athena_run
 from . import status as athena_status
+from .status import DryRunApplyResult
 from .exceptions import AthenaException, QuietException
 from .format import colors, color
 from . import display
@@ -50,8 +52,8 @@ def init(path: str | None, bare: bool):
     athena_state.save(root, state)
 
     if not bare:
-        create_sample_resource_file(os.path.join(root, 'variables.yml'), DEFAULT_VARIABLE_FILE_CONTENTS)
-        create_sample_resource_file(os.path.join(root, 'secrets.yml'), DEFAULT_SECRET_FILE_CONTENTS)
+        dump_resource_file(os.path.join(root, 'variables.yml'), DEFAULT_VARIABLE_FILE_CONTENTS)
+        dump_resource_file(os.path.join(root, 'secrets.yml'), DEFAULT_SECRET_FILE_CONTENTS)
         with open(os.path.join(root, 'my_module.py'), 'w') as f:
             f.write(DEFAULT_MODULE_FILE_CONTENTS)
         with open(os.path.join(root, 'fixture.py'), 'w') as f:
@@ -295,115 +297,71 @@ def athena_import():
     """
     pass
 
+def _import_resource(skip_confirmation: bool, path: str | None, data: str, dry_runner: Callable[[str, AggregatedResource], DryRunApplyResult]):
+    if data is None or len(data) == 0:
+        raise AthenaException("no data provided")
+
+    aggregated_resource = dejsonify(data, expected_type=athena_status.AggregatedResource)
+    path = path or os.getcwd()
+    root = file.find_root(path)
+
+    dry_run = dry_runner(root, aggregated_resource)
+
+    warnings = []
+    if len(dry_run.overwritten_values) > 0:
+        warning = "Importing will overwrite the following values:\n"
+        warning += "\n".join([f"    {i}" for i in dry_run.overwritten_values])
+        warnings.append(warning)
+    if len(dry_run.new_values) > 0:
+        warning = "Importing will create the following values:\n"
+        warning += "\n".join([f"    {i}" for i in dry_run.new_values])
+        warnings.append(warning)
+    if len(warnings) == 0:
+        click.echo("input yielded no changes to current project")
+        return
+    click.echo("Warning: \n" + "\n".join(warnings))
+
+    if not skip_confirmation:
+        if not click.confirm(f"Continue?"):
+            click.echo("import cancelled.")
+            return
+
+    result = athena_status.apply_resource(root, aggregated_resource)
+    if len(result.errors) > 0:
+        click.echo(f'The following errors occurred during the import:')
+        click.echo('\n'.join(['  ' + e for e in result.errors]))
+    click.echo("import complete.")
+
 @athena_import.command(name='secrets')
-@click.argument('secret_data', type=str, default="")
-@click.option('secret_path', '-f', '--file', type=click.Path(
-    exists=True,
-    dir_okay=False,
-    file_okay=True,
-    readable=True,
-    ), help="secret data file to import")
-def athena_import_secrets(secret_data: str, secret_path: str | None):
+@click.option('-y', '--yes', is_flag=True, help='skip confirmation check')
+@click.option('secret_data', '-f', '--file', type=click.File('rt'),
+    default=sys.stdin,
+    help="secret data file to import, omit to read from STDIN")
+@click.argument('path', type=str, required=False)
+def athena_import_secrets(path: str | None, secret_data: IOBase, yes: bool):
     """
     Import secrets for the athena project. Will prompt for confirmation.
+    Data can also be supplied from stdin instead of a file.
 
-    SECRET_DATA - secret data to import. Alternatively, a file can be supplied.
+    PATH - Path to athena project
     """
-    raise AthenaException('Not implemeneted')
-    if secret_path is None:
-        if secret_data is None:
-            raise AthenaException("no data provided")
-    else:
-        with open(secret_path, "r") as f:
-            secret_data = f.read()
 
-    secrets = dejsonify(secret_data, expected_type=athena_status.AggregatedResource)
-    current_dir = os.path.normpath(os.getcwd())
-    root = file.find_root(current_dir)
-
-    dry_run = athena_status.dry_run_apply_secrets(root, secrets)
-    warnings = []
-    if len(dry_run.new_workspaces) > 0:
-        warning = "Importing will create the following new workspaces:\n"
-        warning += "\n".join([f"    {i}" for i in dry_run.new_workspaces])
-        warnings.append(warning)
-    if len(dry_run.new_collections) > 0:
-        warning = "Importing will create the following new collections:\n"
-        warning += "\n".join([f"    {i}" for i in dry_run.new_collections])
-        warnings.append(warning)
-    if len(dry_run.overwritten_values) > 0:
-        warning = "Importing will overwrite the following values:\n"
-        warning += "\n".join([f"    {i}" for i in dry_run.overwritten_values])
-        warnings.append(warning)
-    if len(dry_run.new_values) > 0:
-        warning = "Importing will create the following values:\n"
-        warning += "\n".join([f"    {i}" for i in dry_run.new_values])
-        warnings.append(warning)
-    if len(warnings) == 0:
-        click.echo("input yielded no changes to current project")
-        return
-    click.echo("Warning: \n" + "\n".join(warnings))
-    response = input(f"Continue? (y/N): ")
-    if response.lower() not in ["y", "yes"]:
-        click.echo("secret import cancelled.")
-        return
-    athena_status.apply_secrets(root, secrets)
-    click.echo("Secrets imported.")
+    _import_resource(yes, path, secret_data.read(), athena_status.dry_run_apply_secrets)
 
 @athena_import.command(name='variables')
-@click.argument('variable_data', type=str, default="")
-@click.option('variable_path', '-f', '--file', type=click.Path(
-    exists=True,
-    dir_okay=False,
-    file_okay=True,
-    readable=True,
-    ), help="variable data file to import")
-def athena_import_variables(variable_data: str, variable_path: str | None):
+@click.option('-y', '--yes', is_flag=True, help='skip confirmation check')
+@click.option('variable_data', '-f', '--file', type=click.File('rt'),
+    default=sys.stdin,
+    help="variable data file to import, omit to read from STDIN")
+@click.argument('path', type=str, required=False)
+def athena_import_variables(path: str | None, variable_data: IOBase, yes: bool):
     """
     Import variables for the athena project. Will prompt for confirmation.
+    Data can also be supplied from stdin instead of a file.
 
-    VARIABLE_DATA - variable data to import. Alternatively, a file can be supplied.
+    PATH - Path to athena project
     """
-    raise AthenaException('Not implemeneted')
-    if variable_path is None:
-        if variable_data is None:
-            raise AthenaException("no data provided")
-    else:
-        with open(variable_path, "r") as f:
-            variable_data = f.read()
-
-    variables = dejsonify(variable_data, expected_type=athena_status.AggregatedResource)
-    current_dir = os.path.normpath(os.getcwd())
-    root = file.find_root(current_dir)
-
-    dry_run = athena_status.dry_run_apply_variables(root, variables)
-    warnings = []
-    if len(dry_run.new_workspaces) > 0:
-        warning = "Importing will create the following new workspaces:\n"
-        warning += "\n".join([f"    {i}" for i in dry_run.new_workspaces])
-        warnings.append(warning)
-    if len(dry_run.new_collections) > 0:
-        warning = "Importing will create the following new collections:\n"
-        warning += "\n".join([f"    {i}" for i in dry_run.new_collections])
-        warnings.append(warning)
-    if len(dry_run.overwritten_values) > 0:
-        warning = "Importing will overwrite the following values:\n"
-        warning += "\n".join([f"    {i}" for i in dry_run.overwritten_values])
-        warnings.append(warning)
-    if len(dry_run.new_values) > 0:
-        warning = "Importing will create the following values:\n"
-        warning += "\n".join([f"    {i}" for i in dry_run.new_values])
-        warnings.append(warning)
-    if len(warnings) == 0:
-        click.echo("input yielded no changes to current project")
-        return
-    click.echo("Warning: \n" + "\n".join(warnings))
-    response = input(f"Continue? (y/N): ")
-    if response.lower() not in ["y", "yes"]:
-        click.echo("variable import cancelled.")
-        return
-    athena_status.apply_variables(root, variables)
-    click.echo("Variables imported.")
+    _import_resource(yes, path, variable_data.read(), athena_status.dry_run_apply_variables)
 
 @athena.command()
 @click.argument('path', type=str, required=False)

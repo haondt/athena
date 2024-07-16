@@ -5,15 +5,21 @@ from .exceptions import AthenaException
 
 
 _serializeable_classes = set()
-_deserializeable_classes = {}
+_deserializeable_classes: dict[str, tuple[type, tuple | None]] = {}
 
 def serializeable(cls):
     _serializeable_classes.add(cls)
     return cls
 
-def deserializeable(cls):
-    _deserializeable_classes[cls.__name__] = cls
+def deserializeable(cls: type):
+    _deserializeable_classes[cls.__name__] = (cls, None)
     return cls
+
+def deserializeable_default(*default_args):
+    def inner(cls: type):
+        _deserializeable_classes[cls.__name__] = (cls, default_args)
+        return cls
+    return inner
 
 class AthenaJSONEncoder(JSONEncoder):
     def default(self, o):
@@ -45,8 +51,11 @@ class AthenaJSONDecoder(JSONDecoder):
             class_name = dct["__class__"]
             if class_name in _deserializeable_classes:
                 del dct["__class__"]
-                cls = _deserializeable_classes[class_name]
-                instance = cls()
+                cls, default_args = _deserializeable_classes[class_name]
+                if default_args is not None:
+                    instance = cls(*default_args)
+                else:
+                    instance = cls()
                 for k, v in dct.items():
                     instance.__dict__[k] = v
                 return instance

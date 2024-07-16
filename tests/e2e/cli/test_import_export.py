@@ -103,3 +103,42 @@ def test_export_variables(setup_athena, resource_files):
 
     for value in exported['values']:
         assert resource_files[value['path']][value['key']][value['environment']] == value['value']
+
+def test_import_secrets(setup_athena, new_athena, resource_files):
+    # export secrets from existing dir
+    athena_dir = setup_athena
+    result = subprocess.run(['athena', 'export', 'secrets'], cwd=athena_dir, capture_output=True, text=True)
+    assert result.returncode == 0
+
+    # import secrets to new dir
+    result = subprocess.run(['athena', 'import', 'secrets', '-y'], cwd=new_athena, input=result.stdout, capture_output=True, text=True)
+    assert result.returncode == 0
+
+    # export secrets from new dir
+    result = subprocess.run(['athena', 'export', 'secrets'], cwd=new_athena, capture_output=True, text=True)
+    assert result.returncode == 0
+    exported = json.loads(result.stdout)
+
+    # assert secrets are expected
+    for value in exported['values']:
+        assert resource_files[value['path']][value['key']][value['environment']] == value['value']
+
+def test_import_variables(setup_athena, new_athena, resource_files):
+    # export variables from existing dir
+    athena_dir = setup_athena
+    result = subprocess.run(['athena', 'export', 'variables'], cwd=athena_dir, capture_output=True, text=True)
+    assert result.returncode == 0
+
+    # import variables to new dir
+    result = subprocess.run(['athena', 'import', 'variables', '-y'], cwd=new_athena, input=result.stdout, capture_output=True, text=True)
+    assert result.returncode == 0
+
+    # export variables from new dir
+    result = subprocess.run(['athena', 'export', 'variables'], cwd=new_athena, capture_output=True, text=True)
+    assert result.returncode == 0
+    exported = json.loads(result.stdout)
+
+    # assert variables are expected
+    for value in exported['values']:
+        assert resource_files[value['path']][value['key']][value['environment']] == value['value']
+
