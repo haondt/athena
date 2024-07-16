@@ -1,7 +1,7 @@
 from athena.client import Fixture, Athena
 
 def build_client(athena: Athena):
-    base_url = athena.variable("base_url")
+    base_url = athena.variable.get("base_url")
     return athena.client(lambda r: r
         .base_url(base_url))
 

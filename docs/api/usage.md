@@ -113,6 +113,8 @@ def run(athena: Athena):
     password = athena.secret['password']
     # will use default value if no such variable exists
     email = athena.variable.get('email', default='foo@bar.baz')
+    # will force the type of the value to be a bool
+    is_admin = athena.variable.bool['is_admin']
 ```
 
 This will reference the `variables.yml` and `secrets.yml` environment files. athena will select all variable or secret files that can be found in any ancestor directory of the module being run (up to the athena root directory). For example, if we are running the following module:

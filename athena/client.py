@@ -3,7 +3,7 @@ import requests
 
 from .resource import ResourceLoader, try_extract_value_from_resource, _resource_type, _resource_value_type
 from .exceptions import AthenaException
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, TypeVar, Generic
 from .trace import AthenaTrace, ResponseTrace, RequestTrace, LinkedRequest, LinkedResponse
 from .request import RequestBuilder, Client
 from .athena_json import AthenaJSONEncoder, serializeable
@@ -13,15 +13,27 @@ from contextlib import AsyncExitStack
 import inspect
 
 class ResourceFacade:
+    """Facade to interact with resource files.
+
+    Attributes:
+        int (TypedResourceFacade): attempt to cast to int when retrieving value
+        bool (TypedResourceFacade): attempt to cast to bool when retrieving value
+        str (TypedResourceFacade): attempt to cast to str when retrieving value
+        float (TypedResourceFacade): attempt to cast to float when retrieving value
+    """
     def __init__(self, loader: Callable[[], _resource_type], resource_type: str, environment: str):
         self._loader = loader
         self._resource_type = resource_type
         self._environment = environment
+        self.int = TypedResourceFacade(self, lambda x: int(x))
+        self.float = TypedResourceFacade(self, lambda x: float(x))
+        self.str = TypedResourceFacade(self, lambda x: str(x))
+        self.bool = TypedResourceFacade(self, lambda x: bool(x))
 
     def _load_resource(self, name) -> _resource_value_type:
         success, value = self._try_load_resource(name)
         if success:
-            return str(value)
+            return value
 
         raise AthenaException(f"unable to find {self._resource_type} \"{name}\" with environment \"{self._environment}\". ensure {self._resource_type}s have at least a default environment.")
 
@@ -53,6 +65,43 @@ class ResourceFacade:
         success, value = self._try_load_resource(key)
         if success:
             return value
+        return default
+
+T = TypeVar('T')
+class TypedResourceFacade(Generic[T]):
+    """Typed facade to interact with resource files.
+    """
+    def __init__(self, parent: ResourceFacade, caster: Callable[[_resource_value_type], T]):
+        self._parent = parent
+        self._caster = caster
+
+    def __getitem__(self, key) -> T:
+        """Get value by name. Throws an error if the key cannot be found or if the value is the wrong type.
+
+        Args:
+            key (str): Name of resource to retrieve.
+
+        Returns:
+            _resource_value_type: value
+        """
+        return self._caster(self._parent[key])
+
+    def get(self, key, default: T | None=None) -> T | None:
+        """Get value by name. Returns default value if key cannot be found or value is the wrong type.
+
+        Args:
+            key (str): Name of resource to retrieve.
+            default (_resource_value_type | None): Default value
+
+        Returns:
+            _resource_value_type | None: value
+        """
+        value = self._parent.get(key)
+        if value is not None:
+            try:
+                return self._caster(value)
+            except:
+                pass
         return default
 
 class _Fixture:
