@@ -25,6 +25,7 @@ class LinkedResponse(aiohttp.ClientResponse):
         super().__init__(*args, **kwargs)
         self.athena_get_request: Callable[[], LinkedRequest | None] = lambda: None 
 
+
 @serializeable
 class AthenaTrace:
     """Trace of a single request/response saga.
@@ -140,7 +141,9 @@ class RequestTrace:
         if request_text is not None:
             self.text = request_text
         else:
-            if self.content_type is not None and (RequestTrace.json_re.match(self.content_type) or self.content_type == "application/x-www-form-urlencoded") and isinstance(request.body, (str, bytes)):
+            if self.content_type is not None \
+                and (RequestTrace.json_re.match(self.content_type) or self.content_type == "application/x-www-form-urlencoded") \
+                and isinstance(request.body, (str, bytes)):
                 if isinstance(request.body, bytes):
                     self.text = request.body.decode('utf-8')
                 elif isinstance(request.body, str):

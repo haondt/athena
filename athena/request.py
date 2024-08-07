@@ -4,9 +4,39 @@ import uuid
 
 from .exceptions import AthenaException
 import requests
-import aiohttp, asyncio
+import aiohttp, asyncio, io
 from typing import Any, Callable
 from .trace import AthenaTrace, ResponseTrace, AioHttpRequestContainer, LinkedResponse
+
+class BasicStringWriter(aiohttp.abc.AbstractStreamWriter):
+    def __init__(self):
+        self._buffer = io.BytesIO()
+
+    async def write(self, chunk: bytes) -> None:
+        self._buffer.write(chunk)
+
+    async def write_eof(self, chunk: bytes = b"") -> None:
+        self._buffer.write(chunk)
+
+    async def drain(self) -> None:
+        pass
+
+    def enable_compression(self, encoding: str = "deflate") -> None:
+        """Enable HTTP body compression"""
+        pass
+
+    def enable_chunking(self) -> None:
+        """Enable HTTP chunked mode"""
+        pass
+
+    async def write_headers(
+        self, status_line: str, headers
+    ) -> None:
+        pass
+
+    def decode(self):
+        return self._buffer.getvalue().decode()
+
 
 
 class AthenaRequest:
@@ -364,7 +394,13 @@ class Client:
             assert isinstance(response, LinkedResponse)
             request = response.athena_get_request()
             assert request is not None
-            trace = AthenaTrace(trace_id, trace_name, request, response, start, end, response_text=await response.text())
+            if isinstance(request.body, aiohttp.BytesPayload):
+                writer = BasicStringWriter()
+                await request.body.write(writer)
+                request_text = writer.decode()
+                trace = AthenaTrace(trace_id, trace_name, request, response, start, end, request_text=request_text, response_text=await response.text())
+            else:
+                trace = AthenaTrace(trace_id, trace_name, request, response, start, end, response_text=await response.text())
 
         if(athena_request.verify_ssl == False):
             trace.warnings.append("request was executed with ssl verification disabled")
