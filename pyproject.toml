@@ -9,7 +9,6 @@ authors = [{name = "haondt"}]
 classifiers = ["License :: OSI Approved :: MIT License"]
 readme = "README.md"
 description = "a file-based rest api client"
-version = "0.0.0"
 license = { file = "LICENSE" }
 keywords = ["api", "rest"]
 dependencies = [
@@ -21,6 +20,7 @@ dependencies = [
     "watchdog>=4.0.0",
     "Faker>=25.8.0"
 ]
+dynamic = ["version"]
 
 [tool.flit.module]
 name = "athena"

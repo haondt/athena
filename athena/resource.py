@@ -46,7 +46,6 @@ def load_resource_file(file_path: str) -> _resource_type:
     with open(file_path, "r") as f:
         file_string = f.read()
         serialized_file = file.import_yaml(file_string)
-
     
     result, error = validate_resource(serialized_file)
     if result is None:

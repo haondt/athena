@@ -7,6 +7,7 @@ tasks:
     auto:
       - source: push
     package: haondt-athena
+    embed_metadata: athena/_metadata.py
     registries:
       - pypi
       - gitlab

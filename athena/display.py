@@ -180,8 +180,10 @@ def trace(trace: ExecutionTrace, include_requests: bool, include_responses: bool
                                 break
                 if line_numbers:
                     numbered_text = []
-                    for i, line in enumerate(body_text.split("\n")[:-1]):
-                        numbered_text.append(color(f"{i+1}", colors.brightwhite) + " " + line)
+                    body_lines = body_text.split("\n")
+                    number_column_width = len(str(len(body_lines)))
+                    for i, line in enumerate(body_lines):
+                        numbered_text.append(color(f"{i+1}".ljust(number_column_width), colors.brightwhite) + " " + line)
                     body_text = "\n".join(numbered_text) + "\n"
                     
                 body_metadata = f"{athena_trace.request.content_type} [{render_method}] {humanize.bytes(len(athena_trace.request.text))}"
@@ -228,8 +230,10 @@ def trace(trace: ExecutionTrace, include_requests: bool, include_responses: bool
                                 break
                 if line_numbers:
                     numbered_text = []
-                    for i, line in enumerate(body_text.split("\n")[:-1]):
-                        numbered_text.append(color(f"{i+1}", colors.brightwhite) + " " + line)
+                    body_lines = body_text.split("\n")
+                    number_column_width = len(str(len(body_lines)))
+                    for i, line in enumerate(body_lines):
+                        numbered_text.append(color(f"{i+1}".ljust(number_column_width), colors.brightwhite) + " " + line)
                     body_text = "\n".join(numbered_text) + "\n"
                     
                 body_metadata = f"{athena_trace.response.content_type} [{render_method}] {humanize.bytes(len(athena_trace.response.text))}"
