@@ -231,36 +231,3 @@ def execute_module(builder: ServerBuilder, module_path) -> ServerBuilder:
     module_dir = os.path.dirname(module_path)
     module.execute_module(module_dir, "server", "serve", (builder,))
     return builder
-
-def server(builder: ServerBuilder):
-    builder.add_server(lambda c: c
-        .host('0.0.0.0')
-        .port(1000)
-        .get('hello', lambda b: b
-             .status(404)
-        )
-    )
-def serve(server: ServerBuilder):
-    server.add_server(lambda c: c
-        .get('foo/bar', lambda b: b.status(200))
-        .get('baz/qux', auth)
-    )
-
-def auth(b: RouteBuilder):
-    if b.request.headers.get('X-API-KEY') == 'foobar':
-        return b.status(200)
-    return b.status(401)
-
-
-    
-    # client = athena.client(lambda r: r.base_url('http://localhost:5000/'))
-    # # client.get("api/echo", lambda r: r
-    # #    .body.form({'foo': 5, 'bar': 10})
-    # #     .body.form_append('=', '=?&'))
-    # # client.get("api/echo", lambda r: r
-    # #    .query('foo', [5,10,15,20]))
-    # client.get("api/echo", lambda r: r
-    #    .body.form({'foo': 5, 'bar': 10}))
-    # # client.get("api/echo", lambda r: r
-    # #    .auth.basic('foo', 'bar'))
-    #
