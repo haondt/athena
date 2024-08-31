@@ -31,13 +31,4 @@ def response():
         time.sleep(duration)
     return body, status_code, headers
 
-# # Endpoint with JSON response
-# @app.route('/api/planets/<string:planet_name>', methods=['GET'])
-# @auth_required
-# def get_planet(planet_name):
-#     planet = next((p for p in solar_system_data["planets"] if p["name"] == planet_name), None)
-#     if planet:
-#         return jsonify(planet)
-#     return jsonify({"error": f"Planet not found: {planet_name}"}), 404
-
 app.run(host='0.0.0.0', debug=True, port=5000)

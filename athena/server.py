@@ -156,6 +156,9 @@ class ServerConfigurator():
         return self
 
     def send(self, method: str | list[str], url: str, build_route: Callable[[RouteBuilder], RouteBuilder]):
+        if url[0] != '/':
+            url = f'/{url}'
+
         if isinstance(method, str):
             method_tuple = (method,)
         else:

@@ -14,6 +14,8 @@ from .client import AthenaSession
 from .resource import DEFAULT_ENVIRONMENT_KEY, AggregatedResource, dump_resource_file
 from .run import ExecutionTrace
 
+from .watch import EVENT_TYPE_MODIFIED
+
 from . import file
 from . import cache
 from . import history

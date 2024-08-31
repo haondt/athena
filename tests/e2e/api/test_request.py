@@ -15,8 +15,8 @@ def test_timeout(setup_athena):
     filename = 'test_timeout.py'
     code = f'''def run(athena):
     athena.client().post('http://{API_HOST}/api/response', lambda r: r
-        .body.json({{'duration': 2}})
-        .timeout(0.1))'''
+        .body.json({{'duration': 5}})
+        .timeout(1))'''
     with open(os.path.join(athena_dir, filename), 'w') as f:
         f.write(code)
 
@@ -29,7 +29,7 @@ def test_timeout(setup_athena):
     assert trace['success'] == False
     assert 'ReadTimeout' in trace['error']
     duration = end - start
-    assert duration < 0.5
+    assert duration < 2
 
 def test_param(setup_athena):
     athena_dir = setup_athena
