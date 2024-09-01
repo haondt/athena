@@ -5,10 +5,11 @@ import uuid
 from .exceptions import AthenaException
 import requests
 import aiohttp, asyncio, io
+from aiohttp.abc import AbstractStreamWriter
 from typing import Any, Callable
 from .trace import AthenaTrace, ResponseTrace, AioHttpRequestContainer, LinkedResponse
 
-class BasicStringWriter(aiohttp.abc.AbstractStreamWriter):
+class BasicStringWriter(AbstractStreamWriter):
     def __init__(self):
         self._buffer = io.BytesIO()
 
@@ -49,7 +50,7 @@ class AthenaRequest:
         self.files: Any = None
         self.data: dict[str, Any] | None = None
         self.json: dict | list | str | None = None
-        self.params: Any = {}
+        self.params: list[tuple[str, str]] = []
         self.cookies: Any = None
         self.verify_ssl: bool = True
         self.allow_redirects: bool = True
@@ -262,12 +263,10 @@ class RequestBuilder:
             param_value (str | int | float | bool | list[str | int | float | bool]): value to use. can be a single value or a list of values.
         """
         def add_query_param(rq: AthenaRequest):
-            if param_key not in rq.params:
-                rq.params[param_key] = []
-            if isinstance(param_value, list):
-                rq.params[param_key] += param_value
-            else:
-                rq.params[param_key].append(param_value)
+            param_value_list = param_value if isinstance(param_value, list) else [param_value]
+            param_value_list = [str(i) for i in param_value_list]
+            for str_param_value in param_value_list:
+                rq.params.append((param_key, str_param_value))
             return rq
         self._build_steps.append(add_query_param)
         return self
@@ -361,7 +360,7 @@ class Client:
         Sends an asynchronous HTTP request.
 
         Args:
-            method (str): HTTP method ('GET'/'POST'/'PUT'/'DELETE').
+            method (str): HTTP method ('GET', 'POST', etc).
             url (str): URL endpoint for the request
             build_request (Callable[[RequestBuilder], RequestBuilder], optional):
                 Optional function to build or modify the request.

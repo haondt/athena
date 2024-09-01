@@ -8,6 +8,8 @@ docker network create -d bridge athena
 docker run --rm -d -p 5000:5000 -v $ROOT_DIR/tests/e2e/server.py:/app/server.py --name $FLASK_IMAGE --net=athena --net-alias=$FLASK_IMAGE $FLASK_IMAGE server.py
 sleep 0.25
 echo "running tests..."
+# for running a specific test:
+# docker run --rm -v $ROOT_DIR/tests/e2e:/tests --name $ATHENA_IMAGE --net=athena $ATHENA_IMAGE -vv -k 'test_data' --log-cli-level=INFO
 docker run --rm -v $ROOT_DIR/tests/e2e:/tests --name $ATHENA_IMAGE --net=athena $ATHENA_IMAGE -vv
 echo "cleaning up docker resources..."
 docker stop $FLASK_IMAGE

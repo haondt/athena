@@ -8,11 +8,12 @@ from .athena_json import jsonify, serializeable
 
 from .format import color, colors, indent, long_format_error, pretty_format_error, short_format_error
 from .trace import AthenaTrace
-from . import cache, file
+from . import cache, file, module
 from .client import Athena, Context, AthenaSession
 from .exceptions import AthenaException
 from .resource import ResourceLoader
 import importlib, inspect
+
 
 _logger = logging.getLogger(__name__)
 
@@ -136,67 +137,16 @@ async def _run_module(module_root, module_name, module_path, athena_session: Ath
     try:
         # load fixtures
         for fixture_path in file.search_module_half_ancestors(module_root, module_path, 'fixture.py'):
-            success, _, trace.error = __try_execute_module(os.path.dirname(fixture_path), "fixture", "fixture", (athena_instance.fixture,))
+            success, _, trace.error = module.try_execute_module(os.path.dirname(fixture_path), "fixture", "fixture", (athena_instance.fixture,))
             if not success and trace.error is not None:
                 trace.athena_traces = athena_instance.traces()
                 return trace
 
         # execute module
-        trace.success, trace.result, trace.error = await __try_execute_module_async(module_dir, module_name, "run", (athena_instance,))
+        trace.success, trace.result, trace.error = await module.try_execute_module_async(module_dir, module_name, "run", (athena_instance,))
         trace.athena_traces = athena_instance.traces()
         return trace
 
     finally:
         athena_cache.data = athena_instance.cache._data
 
-def __try_execute_module(module_dir, module_name, function_name, function_args):
-    sys.path.insert(0, module_dir)
-    try:
-        module = importlib.import_module(module_name)
-        try:
-            has_run_function, run_function = __try_get_function(module, function_name, len(function_args))
-            if has_run_function:
-                result = run_function(*function_args)
-                return True, result, None
-            else:
-                return False, None, None
-        finally:
-            del sys.modules[module_name]
-    except Exception as e:
-        if isinstance(e, AthenaException):
-            raise
-        return False, None, e
-    finally:
-        sys.path.pop(0)
-
-async def __try_execute_module_async(module_dir, module_name, function_name, function_args):
-    sys.path.insert(0, module_dir)
-    try:
-        module = importlib.import_module(module_name)
-        try:
-            has_run_function, run_function = __try_get_function(module, function_name, len(function_args))
-            if has_run_function:
-                if inspect.iscoroutinefunction(run_function):
-                    result = await run_function(*function_args)
-                else:
-                    result = run_function(*function_args)
-                return True, result, None
-            else:
-                return False, None, None
-        finally:
-            del sys.modules[module_name]
-    except Exception as e:
-        if isinstance(e, AthenaException):
-            raise
-        return False, None, e
-    finally:
-        sys.path.pop(0)
-
-def __try_get_function(module, function_name, num_args):
-    for name, value in inspect.getmembers(module):
-        if inspect.isfunction(value) and name == function_name:
-            arg_spec = inspect.getfullargspec(value)
-            if len(arg_spec.args) != num_args:
-                continue
-            return True, value
-    return False, lambda: None

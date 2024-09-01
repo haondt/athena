@@ -1,4 +1,5 @@
 from datetime import timedelta
+from multidict import CIMultiDict, CIMultiDictProxy
 import requests, json, aiohttp, re
 from .exceptions import AthenaException
 from .athena_json import serializeable, jsonify
@@ -83,7 +84,7 @@ class ResponseTrace:
         response: requests.Response | aiohttp.ClientResponse,
         response_text: str | None
     ):
-        self.headers = { k:response.headers[k] for k in response.headers.keys() }
+        self.headers: CIMultiDictProxy = CIMultiDictProxy(CIMultiDict(list(response.headers.items())))
         self.url = str(response.url)
         self.reason = response.reason
         self.content_type: str | None = self.headers.get(aiohttp.hdrs.CONTENT_TYPE, None)
@@ -135,7 +136,7 @@ class RequestTrace:
     ):
         self.method = request.method
         self.url = str(request.url)
-        self.headers = { k:v for k, v in request.headers.items() }
+        self.headers: CIMultiDictProxy = CIMultiDictProxy(CIMultiDict(request.headers.items()))
         self.content_type: str | None = self.headers.get(aiohttp.hdrs.CONTENT_TYPE, None)
 
         if request_text is not None:

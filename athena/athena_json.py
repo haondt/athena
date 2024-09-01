@@ -1,5 +1,7 @@
 from json import JSONEncoder, dumps, loads, JSONDecoder
-from typing import Any, Type
+from typing import Any, Protocol, Type
+
+from multidict import CIMultiDictProxy, MultiDict, MultiDictProxy
 
 from .exceptions import AthenaException
 
@@ -24,12 +26,19 @@ def deserializeable_default(*default_args):
 class AthenaJSONEncoder(JSONEncoder):
     def default(self, o):
         if not o.__class__ in _serializeable_classes:
+            result, encoded = self.try_encode_obj(o)
+            if result:
+                return encoded
             return JSONEncoder.default(self, o)
         out = {}
         for k, v in o.__dict__.items():
             if not k.startswith("_"):
                 out[k] = v
         return out
+    def try_encode_obj(self, obj):
+        if isinstance(obj, MultiDictProxy):
+            return True, list(obj.items())
+        return False, None
 
 class AthenaReversibleJSONEncoder(JSONEncoder):
     def default(self, o):

@@ -73,27 +73,31 @@ def search_module_half_ancestors(root: str, module_path: str, ancestor_name: str
     return output
 
 def is_athena_module(path: str):
+    parts = path.split(os.path.sep)
+    if parts[-1] == 'fixture.py':
+        return False
+    if parts[-1] == 'server.py':
+        return False
+    if is_ignored_file(path):
+        return False
+    return True
+
+def is_ignored_file(path: str):
     if not path.endswith('.py'):
-        return False
-    if path.endswith('fixture.py'):
-        return False
+        return True
     parts = path.split(os.path.sep)
     for part in parts:
         if part.startswith('__'):
-            return False
+            return True
         if part.startswith('.'):
-            return False
-    return True
+            return True
+    return False
 
 def is_resource_file(path: str):
     if not (path.endswith('secrets.yml') or path.endswith('variables.yml')):
         return False
-    parts = path.split(os.path.sep)
-    for part in parts:
-        if part.startswith('__'):
-            return False
-        if part.startswith('.'):
-            return False
+    if is_ignored_file(path):
+        return False
     return True
 
 def import_yaml(file) -> object:

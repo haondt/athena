@@ -1,17 +1,21 @@
+import signal
+from ._metadata import __version__
 import asyncio
 from io import IOBase
 import sys, os
 import click
+import threading
 import logging
 from typing import Callable
+from importlib.metadata import version
+
 
 from .defaults import DEFAULT_FIXTURE_FILE_CONTENTS, DEFAULT_MODULE_FILE_CONTENTS, DEFAULT_SECRET_FILE_CONTENTS, DEFAULT_VARIABLE_FILE_CONTENTS
-
 from .client import AthenaSession
-
 from .resource import DEFAULT_ENVIRONMENT_KEY, AggregatedResource, dump_resource_file
-
 from .run import ExecutionTrace
+
+from .watch import EVENT_TYPE_MODIFIED
 
 from . import file
 from . import cache
@@ -19,21 +23,51 @@ from . import history
 from . import state as athena_state
 from . import run as athena_run
 from . import status as athena_status
+from . import server as athena_server
 from .status import DryRunApplyResult
 from .exceptions import AthenaException, QuietException
 from .format import colors, color
 from . import display
 from .athena_json import jsonify, dejsonify
-from .watch import watch_async as athena_watch_async, EVENT_TYPE_MODIFIED
+from .watch import watch_async as athena_watch_async
 
 LOG_TEMPLATE = '[%(levelname)s] %(name)s: %(message)s'
 logging.basicConfig(format=LOG_TEMPLATE, level=100)
+logging.root.setLevel(logging.WARN)
 _logger = logging.getLogger(__name__)
 
+
+
 @click.group()
-@click.version_option()
+@click.version_option(version=__version__)
 def athena():
     pass
+
+
+@athena.command()
+@click.argument('paths', type=str, nargs=-1)
+@click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
+def serve(paths: list[str], verbose: bool):
+    """
+    Start serving one or more servers at the given paths.
+    
+    PATH - Path to server module(s) to execute. Invalid module paths will be ignored.
+    """
+    if (verbose):
+        logging.root.setLevel(logging.INFO)
+
+    server_paths_by_root = filter_paths_and_group_by_root(paths, lambda f: not file.is_ignored_file(f) and f.split(os.path.sep)[-1] == 'server.py')
+    server_builder = athena_server.ServerBuilder()
+    for _, server_paths in server_paths_by_root.items():
+        for server_path in server_paths:
+            athena_server.execute_module(server_builder, server_path)
+
+    threads = [threading.Thread(target=f, args=a, daemon=True) for f, a in server_builder._build()]
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.setLevel(logging.WARNING)
+    [t.start() for t in threads]
+    click.echo('Athena server started. Press Ctrl+C to quit.')
+    signal.pause()
 
 @athena.command()
 @click.argument('path', type=click.Path(
@@ -153,19 +187,16 @@ def clear_cache(path: str | None):
     root = file.find_root(path)
     cache.clear(root)
 
-def run_modules_and(
-        paths: list[str],
-        force_environment: str | None=None,
-        module_callback: Callable[[str, ExecutionTrace], None] | None=None,
-        final_callback: Callable[[dict[str, ExecutionTrace]], None] | None=None,
-        loop: asyncio.AbstractEventLoop | None = None,
-        ):
+def filter_paths_and_group_by_root(paths: list[str], path_filter: Callable[[str], bool] | None=None):
+    if path_filter is None:
+        path_filter = file.is_ignored_file
+
     paths = [os.path.abspath(p) for p in paths]
     if (logging.INFO >= logging.root.level):
         ignored_paths = []
         selected_paths = []
         for path in paths:
-            if file.is_athena_module(path):
+            if path_filter(path):
                 selected_paths.append(path)
             else:
                 ignored_paths.append(path)
@@ -173,18 +204,29 @@ def run_modules_and(
         _logger.info(f'ignoring the following paths:\n{paths_string}')
         paths = selected_paths
     else:
-        paths = [p for p in paths if file.is_athena_module(p)]
+        paths = [p for p in paths if path_filter(p)]
 
-    module_paths_by_root = {}
+    paths_by_root = {}
     for path in paths:
         if not os.path.exists(path):
             raise AthenaException(f"no such file or directory: {path}")
         root = file.find_root(path)
-        if root not in module_paths_by_root:
-            module_paths_by_root[root] = set()
-        if path not in module_paths_by_root[root]:
-            module_paths_by_root[root].add(path)
+        if root not in paths_by_root:
+            paths_by_root[root] = set()
+        if path not in paths_by_root[root]:
+            paths_by_root[root].add(path)
 
+    return paths_by_root
+
+
+def run_modules_and(
+        paths: list[str],
+        force_environment: str | None=None,
+        module_callback: Callable[[str, ExecutionTrace], None] | None=None,
+        final_callback: Callable[[dict[str, ExecutionTrace]], None] | None=None,
+        loop: asyncio.AbstractEventLoop | None = None,
+        ):
+    module_paths_by_root = filter_paths_and_group_by_root(paths, file.is_athena_module)
     for root, modules in module_paths_by_root.items():
         loop = loop or asyncio.get_event_loop()
         try:

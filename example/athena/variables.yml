@@ -1,2 +1,2 @@
 base_url:
-  __default__: 'http://localhost:5000/'
+  __default__: http://localhost:5000/

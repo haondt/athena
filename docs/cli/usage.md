@@ -217,3 +217,13 @@ athena export secrets > secrets.json
 
 athena import secrets -f secrets.json
 ```
+
+## Mock Server
+
+Having set up a mock server configuration in `server.py`, you can start the server with [`serve`](../reference#serve).
+
+```sh
+athena serve server.py
+```
+
+See the [api reference](../../api/usage/#setting-up-a-mock-server) for how to set up `server.py`
