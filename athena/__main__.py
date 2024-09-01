@@ -48,6 +48,11 @@ def athena():
 @click.argument('paths', type=str, nargs=-1)
 @click.option('-v', '--verbose', is_flag=True, help='increase verbosity of output')
 def serve(paths: list[str], verbose: bool):
+    """
+    Start serving one or more servers at the given paths.
+    
+    PATH - Path to server module(s) to execute. Invalid module paths will be ignored.
+    """
     if (verbose):
         logging.root.setLevel(logging.INFO)
 

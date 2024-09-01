@@ -304,4 +304,75 @@ my_module: failed
     │ AssertionError: expected `200` but found `404`
 ```
 
+## Setting up a Mock Server
+
+athena includes a module that wraps `Flask` to deploy a mock server. To use it, create a file anywhere in the `athena` directory named `server.py`.
+This module must contain a method with 1 argument called `serve`. This method will be given a [`ServerBuilder`](../server/#athena.server.ServerBuilder) as the argument.
+
+```python title='server.py'
+from athena.server import ServerBuilder
+
+def serve(builder: ServerBuilder):
+    builder.add_server(lambda c: c
+        .host('0.0.0.0')
+        .port(5000)
+        .get('/api/hello-world', lambda r: r
+            .status(200))
+    )
+```
+
+### Configuring the server
+
+Multiple servers can be implemented, but each server must be on a unique port. If the `port` setting can be omitted from the builder, athena will automatically assign
+an incremental port to the server.
+
+```python title='server.py'
+from athena.server import ServerBuilder
+
+def serve(builder: ServerBuilder):
+    builder.add_server(lambda c: c
+        .get('/api/hello-world', lambda r: r
+            .status(200))
+    )
+
+    builder.add_server(lambda c: c
+        .get('/api/hello-world', lambda r: r
+            .status(201))
+    )
+```
+
+The `add_server` method accepts a lambda that will configure the endpoint using a [`ServerConfigurator`](../server/#athena.server.ServerConfigurator). The `ServerConfigurator` can
+be used to configure the server itself (`host`, `port`, etc) as well as adding routes using the `get`, `post`, `send`, etc methods.
+
+### Configuring the route
+
+There are several methods on the `SeverConfigurator` to add a route using a [`RouteBuilder`](../server/#athena.server.RouteBuilder). For more complex routes, the `RouteBuilder`
+can be configured from a defined function.
+
+```python title='server.py'
+from athena.server import ServerBuilder, RouteBuilder
+
+def serve(builder: ServerBuilder):
+    builder.add_server(lambda c: c
+        .get('/api/hello-world', hello_world)
+    )
+
+def hello_world(builder: RouteBuilder):
+    if 'X-API-KEY' not in builder.request.headers:
+        return builder.status(401)
+    if builder.request.headers['X-API-KEY'] != 'foobar':
+        return builder.status(401)
+    return builder
+        .body.text('hello, world!')
+        .status(200)
+```
+
+The builder provides methods on the object itself for configuring the response, e.g. [`RouteBuilder.status`](../server/#athena.server.RouteBuilder.status), as well as a 
+[`RouteBuilder.request`](../server#athena.server.ServerRequest) accessor to retrieve information about the incoming request,
+e.g. [`RouteBuilder.request.json`](../server/#athena.server.ServerRequestBody.json).
+
+
+
+
+
 

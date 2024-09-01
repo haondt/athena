@@ -132,6 +132,23 @@ def test_json(start_server):
     assert response.status_code == 200
     assert response.json() == { 'hello': 'world!' }
 
+def test_data(start_server):
+    code = f'''def serve(builder):
+    builder.add_server(lambda c: c
+        .host('0.0.0.0')
+        .port(5001)
+        .post('test', lambda r: r
+            .body.data('foo/bar', 'hello!'.encode('utf-8'))
+        )
+    )'''
+
+    start_server(code)
+
+    response = requests.post('http://localhost:5001/test')
+    assert response.status_code == 200
+    assert response.content.decode('utf-8') == 'hello!'
+    assert response.headers['Content-Type'].split(';')[0].strip() == 'foo/bar'
+
 def test_html(start_server):
     code = f'''def serve(builder):
     builder.add_server(lambda c: c

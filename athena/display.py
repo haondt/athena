@@ -1,4 +1,4 @@
-from athena.athena_json import jsonify
+from .athena_json import jsonify
 from .run import ExecutionTrace
 from .format import short_format_error, color, colors, indent, rtruncate
 from . import humanize

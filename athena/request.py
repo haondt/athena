@@ -360,7 +360,7 @@ class Client:
         Sends an asynchronous HTTP request.
 
         Args:
-            method (str): HTTP method ('GET'/'POST'/'PUT'/'DELETE').
+            method (str): HTTP method ('GET', 'POST', etc).
             url (str): URL endpoint for the request
             build_request (Callable[[RequestBuilder], RequestBuilder], optional):
                 Optional function to build or modify the request.

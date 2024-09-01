@@ -13,6 +13,7 @@ nav:
     - Request: api/request.md
     - Fake: api/fake.md
     - Test: api/test.md
+    - Server: api/server.md
 
 theme:
   name: material
