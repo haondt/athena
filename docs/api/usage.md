@@ -362,9 +362,7 @@ def hello_world(builder: RouteBuilder):
         return builder.status(401)
     if builder.request.headers['X-API-KEY'] != 'foobar':
         return builder.status(401)
-    return builder
-        .body.text('hello, world!')
-        .status(200)
+    return builder.body.text('hello, world!')
 ```
 
 The builder provides methods on the object itself for configuring the response, e.g. [`RouteBuilder.status`](../server/#athena.server.RouteBuilder.status), as well as a 
