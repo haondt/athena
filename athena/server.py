@@ -1,22 +1,34 @@
 from __future__ import annotations
+import sys
+import traceback
 from flask.wrappers import Request
 from flask import Flask, Response
+import flask, flask.logging
 import json
 from flask import request
+from flask import jsonify as flask_jsonify
 import os
+
+from multidict import CIMultiDict, CIMultiDictProxy, MultiDict, MultiDictProxy
+
+from .athena_json import jsonify
 from . import module
 from typing import Callable
 import uuid
+import logging
 
 from athena.exceptions import AthenaException
+
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.INFO)
 
 class ServerRequestBody:
     def __init__(self, request: Request):
         self._request = request
 
     @property
-    def form(self):
-        return self._request.form
+    def form(self) -> MultiDictProxy:
+        return MultiDictProxy(MultiDict(self._request.form.items()))
 
     @property
     def files(self):
@@ -36,16 +48,16 @@ class ServerRequest:
         self.body = ServerRequestBody(request)
 
     @property
-    def query(self):
-        return self._request.args
+    def query(self) -> MultiDictProxy:
+        return MultiDictProxy(MultiDict(list(self._request.args.items(multi=True))))
 
     @property
     def cookies(self):
         return self._request.cookies
 
     @property
-    def headers(self):
-        return self._request.headers
+    def headers(self) -> CIMultiDictProxy:
+        return CIMultiDictProxy(CIMultiDict(self._request.headers.items()))
 
     @property
     def url(self):
@@ -68,7 +80,7 @@ class ServerResponse:
 
     def json(self, payload):
         def set_json(r: Response):
-            r.data = json.dumps(payload)
+            r.data = jsonify(payload)
             r.mimetype = 'application/json'
         self._actions.append(set_json)
 
@@ -140,7 +152,6 @@ class RouteBuilder:
         return self._response._to_flask_response()
 
 
-
 class ServerConfigurator():
     def __init__(self):
         self._routes: list[tuple[tuple[str, ...], str, Callable[[RouteBuilder], RouteBuilder]]] = []
@@ -183,11 +194,22 @@ class ServerConfigurator():
         def create_route_handler(func):
             def handler():
                 builder = RouteBuilder(ServerRequest(request))
-                return func(builder)._complete()
+                try:
+                    return func(builder)._complete()
+                except:
+                    exc_type, exc_value, exc_traceback = sys.exc_info()
+                    response = flask_jsonify({
+                        'error': exc_type.__name__ if exc_type is not None else None,
+                        'message': str(exc_value),
+                        'stacktrace': ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+                    })
+                    response.status_code = 500
+                    return response
             return handler
         app = Flask(__name__)
         for methods, url, func in self._routes:
             app.route(url, methods=methods, endpoint=str(uuid.uuid4()))(create_route_handler(func))
+
         return app
 
 class ServerBuilder():
@@ -220,7 +242,12 @@ class ServerBuilder():
         for configurator in self._configurators:
             def start_function(cfg):
                 server = cfg._build()
-                server.run(port=cfg._port, host=cfg._host)
+                def after_request(response):
+                    _logger.info(f'[{request.host}] [{request.method}] {request.path} {response.status}')
+                    return response
+                server.after_request(after_request)
+
+                server.run(port=cfg._port, host=cfg._host, debug=False)
             start_functions.append((start_function, (configurator,)))
 
         return start_functions

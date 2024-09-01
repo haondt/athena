@@ -1,9 +1,10 @@
+import signal
 from ._metadata import __version__
 import asyncio
 from io import IOBase
 import sys, os
 import click
-from multiprocessing import Process 
+import threading
 import logging
 from typing import Callable
 from importlib.metadata import version
@@ -32,7 +33,9 @@ from .watch import watch_async as athena_watch_async
 
 LOG_TEMPLATE = '[%(levelname)s] %(name)s: %(message)s'
 logging.basicConfig(format=LOG_TEMPLATE, level=100)
+logging.root.setLevel(logging.WARN)
 _logger = logging.getLogger(__name__)
+
 
 
 @click.group()
@@ -54,9 +57,12 @@ def serve(paths: list[str], verbose: bool):
         for server_path in server_paths:
             athena_server.execute_module(server_builder, server_path)
 
-    processes = [Process(target=f, args=a) for f, a in server_builder._build()]
-    [p.start() for p in processes]
-    [p.join() for p in processes]
+    threads = [threading.Thread(target=f, args=a, daemon=True) for f, a in server_builder._build()]
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.setLevel(logging.WARNING)
+    [t.start() for t in threads]
+    click.echo('Athena server started. Press Ctrl+C to quit.')
+    signal.pause()
 
 @athena.command()
 @click.argument('path', type=click.Path(
