@@ -72,7 +72,7 @@ python3 -m pip install .
 
 ## Usage
 
-Quickstart guide and API / CLI reference available here: https://haondt.gitlab.io/docs/athena/
+Quickstart guide and API / CLI reference available here: https://docs.haondt.dev/athena/
 
 
 ## Development
