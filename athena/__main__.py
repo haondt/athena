@@ -1,4 +1,6 @@
 import signal
+
+from flask.app import cli
 from ._metadata import __version__
 import asyncio
 from io import IOBase
@@ -411,7 +413,8 @@ def athena_import_variables(path: str | None, variable_data: IOBase, yes: bool):
 @click.option('-e', '--environment', type=str, help="environment to use for execution", default=None)
 @click.option('-c', '--command', type=click.Choice(['requests', 'responses', 'traces', 'run', 'exec']), help="command to run on changed module", default="responses")
 @click.option('-p', '--plain', is_flag=True, help="format output as plain json")
-def watch(path: str | None, environment: str | None, command: str, verbose: bool, plain: bool):
+@click.option('-d', '--debounce', type=float, help="duration (seconds) to wait before registering a file write. defaults to 0.1", default=0.1)
+def watch(path: str | None, environment: str | None, command: str, verbose: bool, plain: bool, debounce: float):
     """
     Watch the given path for changes, and execute the given command on the changed file.
 
@@ -470,7 +473,7 @@ def watch(path: str | None, environment: str | None, command: str, verbose: bool
                 except Exception as e:
                     sys.stderr.write(f"{color('error:', colors.bold, colors.red)} {type(e).__name__}: {str(e)}\n")
             click.echo(f'Starting to watch `{root}`. Press ^C to stop.')
-            await athena_watch_async(root, 0.1, on_change)
+            await athena_watch_async(root, debounce, on_change)
 
     asyncio.run(inner())
 
