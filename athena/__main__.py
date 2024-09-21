@@ -1,6 +1,5 @@
 import signal
 
-from flask.app import cli
 from ._metadata import __version__
 import asyncio
 from io import IOBase
