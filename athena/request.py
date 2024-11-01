@@ -85,7 +85,7 @@ class AthenaRequest:
             'data': self.data,
             'json': self.json,
             'params': self.params,
-            'auth': self.auth,
+            'auth': None if self.auth is None else aiohttp.BasicAuth(*self.auth),
             'cookies': self.cookies,
             'ssl': self.verify_ssl,
             'allow_redirects': self.allow_redirects
