@@ -436,17 +436,17 @@ def watch(path: str | None, environment: str | None, command: str, verbose: bool
                 if plain:
                     click.echo(f"{display.trace_plain(result, include_requests=False, include_responses=True)}")
                 else:
-                    click.echo(f"{display.trace(result, include_requests=False, include_responses=True)}")
+                    click.echo(f"{display.trace(result, include_requests=False, include_responses=True, verbose=verbose)}")
             case 'requests':
                 if plain:
                     click.echo(f"{display.trace_plain(result, include_requests=True, include_responses=False)}")
                 else:
-                    click.echo(f"{display.trace(result, include_requests=True, include_responses=False)}")
+                    click.echo(f"{display.trace(result, include_requests=True, include_responses=False, verbose=verbose)}")
             case 'traces':
                 if plain:
                     click.echo(f"{display.trace_plain(result, include_requests=True, include_responses=True)}")
                 else:
-                    click.echo(f"{display.trace(result, include_requests=True, include_responses=True)}")
+                    click.echo(f"{display.trace(result, include_requests=True, include_responses=True, verbose=verbose)}")
             case 'run':
                 click.echo(f"{module_name}: {result.format_long()}")
             case 'exec':
@@ -493,7 +493,7 @@ def responses(paths: list[str], environment: str | None, verbose: bool, plain: b
     if plain:
         module_callback = lambda _, result: click.echo(f"{display.trace_plain(result, include_requests=False, include_responses=True)}")
     else:
-        module_callback = lambda _, result: click.echo(f"{display.trace(result, include_requests=False, include_responses=True)}")
+        module_callback = lambda _, result: click.echo(f"{display.trace(result, include_requests=False, include_responses=True, verbose=verbose)}")
 
     run_modules_and(paths, force_environment=environment, module_callback=module_callback)
 
@@ -514,7 +514,7 @@ def requests(paths: list[str], environment: str | None, verbose: bool, plain: bo
     if plain:
         module_callback = lambda _, result: click.echo(f"{display.trace_plain(result, include_requests=True, include_responses=False)}")
     else:
-        module_callback = lambda _, result: click.echo(f"{display.trace(result, include_requests=True, include_responses=False)}")
+        module_callback = lambda _, result: click.echo(f"{display.trace(result, include_requests=True, include_responses=False, verbose=verbose)}")
 
     run_modules_and(paths, force_environment=environment, module_callback=module_callback)
 
@@ -535,7 +535,7 @@ def traces(paths: list[str], environment: str | None, verbose: bool, plain: bool
     if plain:
         module_callback = lambda _, result: click.echo(f"{display.trace_plain(result, include_requests=True, include_responses=True)}")
     else:
-        module_callback = lambda _, result: click.echo(f"{display.trace(result, include_requests=True, include_responses=True)}")
+        module_callback = lambda _, result: click.echo(f"{display.trace(result, include_requests=True, include_responses=True, verbose=verbose)}")
 
     run_modules_and(paths, force_environment=environment, module_callback=module_callback)
 

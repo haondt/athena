@@ -1,6 +1,7 @@
+from athena.resource import try_extract_value_from_resource
 from .athena_json import jsonify
 from .run import ExecutionTrace
-from .format import short_format_error, color, colors, indent, rtruncate
+from .format import long_format_error, short_format_error, color, colors, indent, rtruncate
 from . import humanize
 import random
 import re
@@ -102,7 +103,7 @@ def trace_plain(trace: ExecutionTrace, include_requests: bool, include_responses
             del athena_trace['response']
     return json.dumps(copy)
 
-def trace(trace: ExecutionTrace, include_requests: bool, include_responses: bool):
+def trace(trace: ExecutionTrace, include_requests: bool, include_responses: bool, verbose: bool):
     output = []
     #min_width = 40
     #max_width = 165
@@ -114,16 +115,21 @@ def trace(trace: ExecutionTrace, include_requests: bool, include_responses: bool
         section_output += f"{color(trace.module_name, colors.underline, colors.bold)} {color('•', success_color)}"
         return section_output
 
+    def format_error(error: Exception) -> str:
+        if (verbose):
+            return long_format_error(error, False)
+        return long_format_error(error, True, trace.filename)
+
     def sub_header() -> str:
         section_output = ""
         section_output += f"environment: {trace.environment}"
         if not trace.success:
             if trace.error is not None:
-                section_output += f"\n{color('Warning:', colors.yellow)} execution failed to complete successfully\n{color(short_format_error(trace.error), colors.brightred)}"
+                section_output += f"\n{color('Warning:', colors.yellow)} execution failed to complete successfully\n{color(format_error(trace.error), colors.brightred)}"
             else:
                 section_output += f"\n{color('Warning:', colors.yellow)} execution failed to complete successfully"
         elif trace.error is not None:
-            section_output += f"\n{color('Warning:', colors.yellow)} execution completed with errors\n{color(short_format_error(trace.error), colors.brightyellow)}"
+            section_output += f"\n{color('Warning:', colors.yellow)} execution completed with errors\n{color(format_error(trace.error), colors.brightyellow)}"
         return section_output
 
     def duration_view():
