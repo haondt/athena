@@ -54,7 +54,7 @@ athena provides a lightweight alternative to full-blown api platforms like Postm
 - As the workbook is just a collection of plaintext files, you can keep it in the same git repo as the project it is testing.
 - Since requests are just python modules, you can script to your hearts content, and leverage external python libraries.
 
-## Installation 
+## Installation
 
 athena can be installed as a pypi package or from source. athena requires python>=3.14.
 

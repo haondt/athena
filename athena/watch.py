@@ -31,9 +31,9 @@ async def watch_async(path: str, settle: float, callback: Callable[[str, str], N
     observer.schedule(handler, path=path, recursive=True)
     observer.start()
 
-    try: 
+    try:
         await asyncio.Event().wait()
-    finally: 
+    finally:
         observer.stop()
         observer.join()
 

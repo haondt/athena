@@ -3,6 +3,8 @@ import os, yaml, re, glob
 
 from .exceptions import AthenaException
 
+_ignored = []
+
 def init(base_dir: str, bare: bool):
     base_dir = os.path.abspath(base_dir)
     base_dir = os.path.normpath(base_dir)
@@ -21,6 +23,8 @@ def init(base_dir: str, bare: bool):
 
     with open(os.path.join(path, ".gitignore"), "w") as f:
         f.write("__pycache__/\nsecrets.yml\n.cache\n.history\n")
+    with open(os.path.join(path, ".athenaignore"), "w") as f:
+        pass
     return path
 
 def find_root(current_dir: str):
@@ -40,6 +44,22 @@ def find_root(current_dir: str):
         current_dir = os.path.dirname(current_dir)
         current_depth += 1
 
+def load_ignore_file(root: str):
+    path = os.path.join(root, '.athenaignore')
+    global _ignored
+    _ignored = []
+    if os.path.isfile(path):
+        with open(path, 'r') as f:
+            lines = f.readlines()
+            lines = [i.strip() for i in lines]
+            lines = [i for i in lines if len(i) > 0 and not i.startswith('#')]
+            for line in lines:
+                anchored = "/" in line.rstrip("/")
+                line = line.lstrip("/").rstrip("/")
+                pattern = re.escape(line)
+                pattern = pattern.replace(r"\*\*", ".*").replace(r"\*", "[^/]*").replace(r"\?", "[^/]")
+                pattern = f"^{root}/{pattern}(/.*)?$" if anchored else f"^{root}(/.*)?/{pattern}(/.*)?$"
+                _ignored.append(re.compile(pattern))
 
 def search_modules(root: str):
     files = glob.glob(os.path.join(root, "**/*.py"), recursive=True)
@@ -73,6 +93,8 @@ def search_module_half_ancestors(root: str, module_path: str, ancestor_name: str
     return output
 
 def is_athena_module(path: str):
+    if not path.endswith('.py'):
+        return False
     parts = path.split(os.path.sep)
     if parts[-1] == 'fixture.py':
         return False
@@ -83,14 +105,17 @@ def is_athena_module(path: str):
     return True
 
 def is_ignored_file(path: str):
-    if not path.endswith('.py'):
-        return True
     parts = path.split(os.path.sep)
     for part in parts:
         if part.startswith('__'):
             return True
         if part.startswith('.'):
             return True
+
+    for pattern in _ignored:
+        if pattern.search(path):
+            return True
+
     return False
 
 def is_resource_file(path: str):
@@ -99,6 +124,9 @@ def is_resource_file(path: str):
     if is_ignored_file(path):
         return False
     return True
+
+def is_ignore_file(root: str, path: str):
+    return path == os.path.join(root, '.athenaignore')
 
 def import_yaml(file) -> object:
      return yaml.load(file, Loader=yaml.FullLoader)

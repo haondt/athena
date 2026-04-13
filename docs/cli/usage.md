@@ -12,6 +12,7 @@ Created athena project at: `/home/haondt/athena`
 $ tree -a athena
 athena
 ├── .athena
+├── .athenaignore
 ├── .gitignore
 ├── my_module.py
 ├── fixture.py
@@ -73,6 +74,8 @@ Any number of files can be passed to the `run` (and similar) commands. If the fi
 athena run ./foo/*
 athena run **/*
 ```
+
+You can also use `.athenaignore` to prevent athena from running certain files. The syntax is the same as `.gitignore`, minus the support for negation (`!`). [`athena watch`](../reference#watch) will also respect `.athenaignore`.
 
 ### Tracing requests
 

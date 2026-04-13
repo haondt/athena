@@ -464,10 +464,14 @@ def watch(path: str | None, environment: str | None, command: str, verbose: bool
             # retrieve the loop from the main thread
             loop = asyncio.get_event_loop()
             def on_change(event_type: str, changed_path: str):
-                if file.is_resource_file(changed_path):
-                    session.resource_loader.clear_cache()
                 if event_type != EVENT_TYPE_MODIFIED:
                     return
+                if file.is_ignore_file(root, changed_path):
+                    file.load_ignore_file(root)
+                if file.is_ignored_file(changed_path):
+                    return
+                if file.is_resource_file(changed_path):
+                    session.resource_loader.clear_cache()
                 try:
                     asyncio.run_coroutine_threadsafe(on_change_async(changed_path, session), loop).result()
                 except Exception as e:
