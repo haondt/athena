@@ -4,6 +4,7 @@ import os, yaml, re, glob
 from .exceptions import AthenaException
 
 _ignored = []
+_ignored_first_load = False
 
 def init(base_dir: str, bare: bool):
     base_dir = os.path.abspath(base_dir)
@@ -28,6 +29,7 @@ def init(base_dir: str, bare: bool):
     return path
 
 def find_root(current_dir: str):
+    global _ignored_first_load
     current_dir = os.path.normpath(current_dir)
     current_dir = os.path.abspath(current_dir)
 
@@ -39,6 +41,9 @@ def find_root(current_dir: str):
             raise AthenaException(f"not an athena project")
         athena_file = os.path.join(current_dir, ".athena")
         if os.path.isfile(athena_file):
+            if not _ignored_first_load:
+                load_ignore_file(current_dir)
+                _ignored_first_load = True
             return current_dir
         prev_dir = current_dir
         current_dir = os.path.dirname(current_dir)
