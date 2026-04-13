@@ -69,7 +69,7 @@ class AthenaJSONDecoder(JSONDecoder):
                     instance.__dict__[k] = v
                 return instance
         return dct
-            
+
 def jsonify(item: Any, reversible=False, indent: int | None = None):
     try:
         if reversible:

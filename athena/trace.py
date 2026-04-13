@@ -156,6 +156,8 @@ class RequestTrace:
                 self.text = ""
             elif request.body is None:
                 self.text = ""
+            elif isinstance(request.body, bytes) and len(request.body) == 0:
+                self.text = ""
             else:
                 raise AthenaException(f"unable to handle request body of type {type(request.body)} with content type {self.content_type}")
 

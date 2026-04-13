@@ -1,7 +1,12 @@
 from athena.client import Athena
 
-def run(athena: Athena):
+async def run(athena: Athena):
     client = athena.client()
-    client.get('http://echo.jsontest.com/key/value')
-    client.get('http://echo.jsontest.com/foo/bar')
+    # raise ValueError("what now")
+    await client.get_async('http://echo.free.beeceptor.com/key/value')
+    await client.post_async(
+        'http://echo.free.beeceptor.com/key/value',
+        lambda r: r.body.form({
+            'foo': 'yes'
+        }))
 

@@ -56,7 +56,7 @@ athena provides a lightweight alternative to full-blown api platforms like Postm
 
 ## Installation 
 
-athena can be installed as a pypi package or from source. athena requires python>=3.11.
+athena can be installed as a pypi package or from source. athena requires python>=3.14.
 
 ```sh
 # from pypi
@@ -76,6 +76,14 @@ Quickstart guide and API / CLI reference available here: https://docs.haondt.dev
 
 
 ## Development
+
+### Setting up dev env
+
+Ensure you have `just` installed, and run
+
+```sh
+just install
+```
 
 ### Running Tests
 

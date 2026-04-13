@@ -58,14 +58,20 @@ def long_format_error(err: Exception, truncate_trace: bool=True, target_file: st
     message = "\n".join([_long_format_frame(f) for f in frames])
     message += f"\n{err.__class__.__name__}: {str(err)}"
     return message
+
+def _get_frame_line(frame: traceback.FrameSummary):
+    if hasattr(frame, '_line'):
+        return frame._line # type: ignore
+    return frame._lines
+
 def _long_format_frame(frame):
     underline = [" "]*frame.colno
     if frame.lineno == frame.end_lineno: 
         underline += ["^"]*(frame.end_colno - frame.colno)
     else:
-        underline += ["^"]*(len(frame._line.rstrip()) - len(underline))
+        underline += ["^"]*(len(_get_frame_line(frame).rstrip()) - len(underline))
     underline = ''.join(underline)
-    s = f"File \"{frame.filename}\", line {frame.lineno}, in {frame.name}\n{frame._line.rstrip()}\n{underline}"
+    s = f"File \"{frame.filename}\", line {frame.lineno}, in {frame.name}\n{_get_frame_line(frame).rstrip()}\n{underline}"
     return s
 
 def pretty_format_error(err: Exception, truncate_trace: bool=True, target_file: str | None=None):

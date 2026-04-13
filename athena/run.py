@@ -30,7 +30,7 @@ class SerializableExecutionTrace:
         self.environment: str | None = None
 
     def jsonify(self):
-        return jsonify(self, indent=4)
+        return jsonify(self)
 
 class ExecutionTrace:
     def __init__(self, module_name: str):
@@ -70,7 +70,7 @@ class ExecutionTrace:
         output = SerializableExecutionTrace()
         output.success = self.success
         output.athena_traces = self.athena_traces
-        output.error = short_format_error(self.error) if self.error is not None else None
+        output.error = long_format_error(self.error) if self.error is not None else None
         output.result = str(self.result) if self.result is not None else None
         output.filename = self.filename
         output.module_name = self.module_name
@@ -101,7 +101,7 @@ async def _run_modules(
         for path in modules:
             module_name = os.path.basename(path)[:-3]
             results[path] = await _run_module(root, module_name, path, session, athena_cache, environment)
-            history.push(root, lambda: results[path].as_serializable().jsonify())
+            history.push(root, lambda: jsonify(results[path].as_serializable()))
             if module_completed_callback is not None:
                 module_completed_callback(module_name, results[path])
     finally:

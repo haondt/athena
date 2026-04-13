@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 RUN apt update
 RUN apt install -y curl
@@ -9,6 +9,7 @@ RUN pip install -U pytest flask flit
 WORKDIR /app
 
 COPY ./pyproject.toml /app
+COPY ./LICENSE /app
 RUN touch /app/README.md
 RUN mkdir /app/athena
 

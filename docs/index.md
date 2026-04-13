@@ -14,7 +14,7 @@ Since the workbook is just a few files in a directory, it is inherently much mor
 
 ## Installation
 
-athena can be installed as a pypi package or from source. athena requires python>=3.11
+athena can be installed as a pypi package or from source. athena requires python>=3.14
 
 ```sh
 # from pypi

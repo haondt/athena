@@ -2,7 +2,7 @@
 
 ## Installation
 
-athena is available on PyPI and requires Python >= 3.11.
+athena is available on PyPI and requires Python >= 3.14.
 
 ```sh
 python3 -m pip install haondt-athena

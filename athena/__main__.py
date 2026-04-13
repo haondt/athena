@@ -229,7 +229,8 @@ def run_modules_and(
         ):
     module_paths_by_root = filter_paths_and_group_by_root(paths, file.is_athena_module)
     for root, modules in module_paths_by_root.items():
-        loop = loop or asyncio.get_event_loop()
+        loop = loop or asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
             environment = force_environment or internal_get_environment(root)
             results = loop.run_until_complete(athena_run.run_modules(root, modules, environment, module_callback))
